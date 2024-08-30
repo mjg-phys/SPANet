@@ -1,4 +1,16 @@
-# Symmetry Preserving Attention Networks
+# SPANet for 4Tops
+
+Forked library with additional scripts to help train SPANet models to reconstruct four top quark (tttt) decays in the 2LSS, 3L and 4L channels. Please first read the original README instructions below on how to use this library. Here are additional instructions specific to four tops reconstruction.
+
+## Data Formatting
+
+## Training
+
+## Testing and Evaluation
+
+### Output Variables
+
+# Original README: Symmetry Preserving Attention Networks 
 
 A library for training and evaluation SPANets on jet reconstruction tasks. 
 Originally developed for `ttbar` analysis,
