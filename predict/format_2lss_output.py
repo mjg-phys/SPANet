@@ -148,11 +148,11 @@ for event in tree:
 
         tm1 = t_m(pt[i], eta[i], phi[i], e[i], b1[i], q11[i], q12[i])
         tm2 = t_m(pt[i], eta[i], phi[i], e[i], b2[i], q21[i], q22[i])
-        top_m = [tm1 if b1[i] >= 2 and q11[i] >= 2 and q12[i] >= 2 and tm1 != 0 else -1, tm2 if b2[i] >= 2 and q21[i] >= 2 and q22[i] >= 2 and tm2 != 0 else -1, -1 , -1]
+        top_m = [tm1 if b1[i] >= 2 and q11[i] >= 2 and q12[i] >= 2 and tm1 > 0 else -1, tm2 if b2[i] >= 2 and q21[i] >= 2 and q22[i] >= 2 and tm2 > 0 else -1, -1 , -1]
         
         wm1 = W_m(pt[i], eta[i], phi[i], e[i], q11[i], q12[i])
         wm2 = W_m(pt[i], eta[i], phi[i], e[i], q21[i], q22[i])
-        W_mass = [wm1 if q11[i] >= 2 and q12[i] and wm1 != 0 else -1, wm2 if q21[i] >= 2 and q22[i] >= 2 and wm2 != 0 else -1, -1, -1]
+        W_mass = [wm1 if q11[i] >= 2 and q12[i] and wm1 > 0 else -1, wm2 if q21[i] >= 2 and q22[i] >= 2 and wm2 > 0 else -1, -1, -1]
         
         top_had = [1,1,0,0]
 
@@ -161,7 +161,7 @@ for event in tree:
 
         mbl3 = mbl(pt[i], eta[i], phi[i], e[i], b3[i], l3[i])
         mbl4 = mbl(pt[i], eta[i], phi[i], e[i], b4[i], l4[i])
-        m_bl = [-1, -1, mbl3 if b3[i] >= 2 and l3[i] < 2 and mbl3 != 0 else -1, mbl4 if b4[i] >= 2 and l4[i] < 2 and mbl4 != 0 else -1]
+        m_bl = [-1, -1, mbl3 if b3[i] >= 2 and l3[i] < 2 and mbl3 > 0 else -1, mbl4 if b4[i] >= 2 and l4[i] < 2 and mbl4 > 0 else -1]
 
         el_index = [-1, -1, int(l3[i]) if etag[i][l3[i]] == 1 and l3[i] < 2 else -1, int(l4[i]) if etag[i][l4[i]] == 1 and l4[i] < 2 else -1]
 
