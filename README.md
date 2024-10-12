@@ -2,7 +2,7 @@
 
 Forked library with additional tools to create and use SPANet models to reconstruct four top quark (tttt) decays in the 2LSS, 3L and 4L channels with ATLAS data.
 
-Please first read [README2.md](README2.md) for instructions on how to install and use this library. Here are additional instructions specific to use with ATLAS 4Tops data.
+**Please first read [README2.md](README2.md) for instructions on how to install and use this library.** Here are additional instructions specific to use with ATLAS 4Tops data.
 
 Created by Dean Reiter, Cornell University '25.
 
