@@ -4,7 +4,7 @@ A library for training and evaluation SPANets on jet reconstruction tasks.
 Originally developed for `ttbar` analysis,
 this library now supports arbitrary event topologies and symmetry groups.
 
-*Modified for SPANet for 4Tops
+***Modified for SPANet for 4Tops**
 
 ## Version 2 Update
 
