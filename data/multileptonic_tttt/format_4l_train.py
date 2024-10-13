@@ -31,7 +31,7 @@ for n in sys.argv[2:]:
 
 tree = chain.CopyTree("pass_llll_NOSYS")
 
-name = sys.argv[1]
+name = str(sys.argv[1])
 
 if '.h5' not in name:
     name += '.h5'
