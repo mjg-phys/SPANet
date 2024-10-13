@@ -29,7 +29,7 @@
 
     "skip_connections": true,
     "initial_embedding_skip_connections": true,
-    "event_info_file": "/eos/user/d/dreiter/SPANet/event_files/tttt_3l.yaml",
+    "event_info_file": "event_files/tttt_3l.yaml",
     "training_file": "/eos/user/d/dreiter/SPANet/data/multileptonic_tttt/tttt_3l_training.h5",
 
     "normalize_features": true,
