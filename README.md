@@ -159,7 +159,7 @@ The script creates the following new variables and stores them in the final n-tu
     - Type: std::vector[float], Size: 4
     - Example: (-1, -1, 93670, 114580)
 - `top_assign_prob_SPANET`
-    - Assignment probability for each target (roughly, probability that assignments are correct - see SPANet documentation)
+    - Assignment probability for each target (roughly, probability that all assignments per target are correct - see SPANet documentation)
     - Type: std::vector[float], Size: 4
     - Example: (0.8423, 0.5682, 0.9534, 0.7588)
 - `top_detect_prob_SPANET`
