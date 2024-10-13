@@ -171,7 +171,7 @@ The script creates the following new variables and stores them in the final n-tu
     - Type: std::vector[float], Size: 4
     - Example: (0.1245, 0.3681, 0.0245, 0.2985)
 
-*Jet index refers to index of a jet in TopCPToolkit variables `jet_pt`, `jet_eta`, etc. Electron index refers to index of an electron in TopCPToolkit variables `el_pt`, etc. Muon index refers to index of a muon in TopCPToolkit variables `mu_pt`, etc.
+*Jet index refers to index in TopCPToolkit variables `jet_pt`, `jet_eta`, etc. Electron index refers to index in TopCPToolkit variables `el_pt`, etc. Muon index refers to index in TopCPToolkit variables `mu_pt`, etc.
 
 **Leptonic targets are given a `q1_index`, `q2_index`, `top_m`, and `W_m` of -1. Likewise, hadronic targets are given a `mu_index`, `el_index`, and `mbl` of -1. 
 
