@@ -123,52 +123,52 @@ python predict/format_4l_output.py ORIGINAL_NTUPLE.root SPANET_OUTPUT.h5 NEW_NTU
 
 The script creates the following new variables and stores them in the final n-tuple:
 - `b_index_SPANET`
-    - Type: std::vector[int], Size: 4
     - Jet indices of b-jets assigned to targets
+    - Type: std::vector[int], Size: 4
     - Example: (1, 8, 3, 7)
 - `q1_index_SPANET`
-    - Type: std::vector[int], Size: 4
     - Jet indices of hadronic decay jet 1 assigned to targets
+    - Type: std::vector[int], Size: 4
     - Example: (4, 6, -1, -1)
 - `q2_index_SPANET`
-    - Type: std::vector[int], Size: 4
     - Jet indices of hadronic decay jet 2 assigned to targets
+    - Type: std::vector[int], Size: 4
     - Example: (5, 2, -1, -1)
 - `el_index_SPANET`
-    - Type: std::vector[int], Size: 4
     - Electron indices of leptonic decay electron assigned to targets
+    - Type: std::vector[int], Size: 4
     - Example: (-1, -1, 0, -1)
 - `mu_index_SPANET`
-    - Type: std::vector[int], Size: 4
     - Muon indices of leptonic decay muon assigned to targets
+    - Type: std::vector[int], Size: 4
     - Example: (-1, -1, -1, 0)
 - `top_isHadronic_SPANET`
-    - Type: std::vector[int], Size: 4
     - 1 for hadronic target, 0 for leptonic target
+    - Type: std::vector[int], Size: 4
     - Example: (1, 1, 0, 0)
 - `top_m_SPANET`
-    - Type: std::vector[float], Size: 4
     - Invariant mass of reconstructed hadronic top quarks, computed from kinematics of b, q1, q2 assigned to targets
+    - Type: std::vector[float], Size: 4
     - Example: (142470, 184340, -1, -1)
 - `W_m_SPANET`
-    - Type: std::vector[float], Size: 4
     - Invariant mass of reconstructed hadronic W bosons, computed from kinematics of q1, q2 assigned to targets
+    - Type: std::vector[float], Size: 4
     - Example: (90450, 75610, -1, -1)
 - `mbl_SPANET`
-    - Type: std::vector[float], Size: 4
     - Invariant mass of b-jet and lepton combined, computed from kinematics of b and l from reconstructed leptonic decays
+    - Type: std::vector[float], Size: 4
     - Example: (-1, -1, 93670, 114580)
 - `top_assign_prob_SPANET`
-    - Type: std::vector[float], Size: 4
     - Assignment probability for each target (roughly, probability that assignments are correct - see SPANet documentation)
+    - Type: std::vector[float], Size: 4
     - Example: (0.8423, 0.5682, 0.9534, 0.7588)
 - `top_detect_prob_SPANET`
-    - Type: std::vector[float], Size: 4
     - Detection probability for each target (see SPANet documentation)
+    - Type: std::vector[float], Size: 4
     - Example: (0.4753, 0.7342, 0.6124, 0.8352)
 - `top_margin_prob_SPANET`
-    - Type: std::vector[float], Size: 4
     - Marginal probability for each target (see SPANet documentation)
+    - Type: std::vector[float], Size: 4
     - Example: (0.1245, 0.3681, 0.0245, 0.2985)
 
 
