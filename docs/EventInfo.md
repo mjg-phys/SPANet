@@ -1,5 +1,7 @@
 # Event Specification Format
 
+*Event topology definition `.yaml` files for tttt training are already provided in [event_files/](event_files/).
+
 The first step to training SPANets is to define the topology of your target event. To do this, `SPANet`uses a definition `.yaml` file which contains the features and jet information for your event. This will describe both the inputs and outputs for your model, along with any related symmetries.
 
 The structure of the `.yaml` file will follows a standard format. Special keys which must be exactly as shown will be in `CAPITALCASE`. Custom keys which may modified for your event will be in `lower_case_with_underscores`
