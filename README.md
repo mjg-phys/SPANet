@@ -129,7 +129,7 @@ The script creates the following new variables and stores them in the final n-tu
 - `q1_index_SPANET`
     - Jet indices of hadronic decay jet 1 assigned to targets
     - Type: std::vector[int], Size: 4
-    - Example: (4, 6, -1, -1)
+    - Example: (4, 6, -1, -1)**
 - `q2_index_SPANET`
     - Jet indices of hadronic decay jet 2 assigned to targets
     - Type: std::vector[int], Size: 4
@@ -149,7 +149,7 @@ The script creates the following new variables and stores them in the final n-tu
 - `top_m_SPANET`
     - Invariant mass of reconstructed hadronic top quarks, computed from kinematics of b, q1, q2 assigned to targets
     - Type: std::vector[float], Size: 4
-    - Example: (142470, 184340, -1, -1)
+    - Example: (142470, 184340, -1, -1)**
 - `W_m_SPANET`
     - Invariant mass of reconstructed hadronic W bosons, computed from kinematics of q1, q2 assigned to targets
     - Type: std::vector[float], Size: 4
@@ -171,7 +171,8 @@ The script creates the following new variables and stores them in the final n-tu
     - Type: std::vector[float], Size: 4
     - Example: (0.1245, 0.3681, 0.0245, 0.2985)
 
-*Note: Jet index refers to index of a jet in TopCPToolkit variables `jet_pt`, `jet_eta`, etc. Electron index refers to index of an electron in TopCPToolkit variables `el_pt`, etc. Muon index refers to index of a muon in TopCPToolkit variables `mu_pt`, etc.
+*Jet index refers to index of a jet in TopCPToolkit variables `jet_pt`, `jet_eta`, etc. Electron index refers to index of an electron in TopCPToolkit variables `el_pt`, etc. Muon index refers to index of a muon in TopCPToolkit variables `mu_pt`, etc.
 
+**Leptonic targets are given a `q1_index`, `q2_index`, `top_m`, and `W_m` of -1. Likewise, hadronic targets are given a `mu_index`, `el_index`, and `mbl` of -1. 
 
 
