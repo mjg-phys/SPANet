@@ -4,6 +4,8 @@ We use HDF5 files in order to store all of the training and testing data
 for SPANet. The structure of these files is closely related with your
 [event definition](./EventInfo.md).
 
+*[Instructions to create tttt training dataset](https://github.com/deanr02/SPANet/blob/master/README.md#creating-training-data)
+
 ## HDF5 Structure
 
 We multi-level HDF5 structure within each file which conforms to the following tree structure. 
