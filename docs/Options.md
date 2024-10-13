@@ -8,7 +8,7 @@ of the valid options used during training and evaluation. You can quickly
 experiment with different options by simply modifying this file or providing 
 it as part of a different script.
 
-## Options Files
+## Options Files*
 
 ***Training option `.json` files for tttt training have already been created but should be modified. They can be found [here](options_files/multileptonic_tttt).**
 
