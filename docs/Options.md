@@ -10,7 +10,7 @@ it as part of a different script.
 
 ## Options Files
 
-*Training option `.json` files for tttt training have already been created but should be modified. They can be found [here](options_files/multileptonic_tttt).
+***Training option `.json` files for tttt training have already been created but should be modified. They can be found [here](options_files/multileptonic_tttt).**
 
 [`spanet/options.py`](../spanet/options.py) defines the default parameters which
 are fed to all networks. However, you often want to experiment with many different
