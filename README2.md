@@ -4,6 +4,8 @@ A library for training and evaluation SPANets on jet reconstruction tasks.
 Originally developed for `ttbar` analysis,
 this library now supports arbitrary event topologies and symmetry groups.
 
+*Modified for SPANet for 4Tops
+
 ## Version 2 Update
 
 We recently pushed an updated version 2 of this library which adds several new features.
@@ -14,11 +16,11 @@ We recently pushed an updated version 2 of this library which adds several new f
 
 An example demonstrating these new features may be found here: [docs/TTH.md](docs/TTH.md).
 
-## Installation
+## Installation*
 You can install this package to use it outside of the repository after cloning.
 
 ```bash
-git clone https://github.com/Alexanders101/SPANet
+git clone https://github.com/deanr02/SPANet
 cd SPANet
 pip install .
 ```
