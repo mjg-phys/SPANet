@@ -95,13 +95,13 @@ Note that the script only saves events with the correct number of leptons. For e
 
 ```
 # 2LSS Channel
-python data/multileptonic_tttt/format_2lss_test.py PATH/OUTPUT.h5 NTUPLE.root
+python data/multileptonic_tttt/format_2lss_test.py OUTPUT.h5 NTUPLE.root
 
 # 3L Channel
-python data/multileptonic_tttt/format_3l_test.py PATH/OUTPUT.h5 NTUPLE.root 
+python data/multileptonic_tttt/format_3l_test.py OUTPUT.h5 NTUPLE.root 
 
 # 4L Channel
-python data/multileptonic_tttt/format_4l_test.py PATH/OUTPUT.h5 NTUPLE.root 
+python data/multileptonic_tttt/format_4l_test.py OUTPUT.h5 NTUPLE.root 
 ```
 
 ## Output Formatting
