@@ -155,7 +155,7 @@ The script creates the following new variables and stores them in the final n-tu
     - Type: std::vector[float], Size: 4
     - Example: (90450, 75610, -1, -1)
 - `mbl_SPANET`
-    - Invariant mass of b-jet and lepton combined, computed from kinematics of b and l from reconstructed leptonic decays
+    - Invariant mass of b-jet and lepton combined from leptonic decays, computed from kinematics of b and l assigned to targets
     - Type: std::vector[float], Size: 4
     - Example: (-1, -1, 93670, 114580)
 - `top_assign_prob_SPANET`
