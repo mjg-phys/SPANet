@@ -123,7 +123,7 @@ python predict/format_4l_output.py ORIGINAL_NTUPLE.root SPANET_OUTPUT.h5 NEW_NTU
 
 The script creates the following new variables and stores them in the final n-tuple:
 - `b_index_SPANET`
-    - Jet indices of b-jets assigned to targets
+    - Jet indices* of b-jets assigned to targets
     - Type: std::vector[int], Size: 4
     - Example: (1, 8, 3, 7)
 - `q1_index_SPANET`
@@ -135,11 +135,11 @@ The script creates the following new variables and stores them in the final n-tu
     - Type: std::vector[int], Size: 4
     - Example: (5, 2, -1, -1)
 - `el_index_SPANET`
-    - Electron indices of leptonic decay electron assigned to targets
+    - Electron indices* of leptonic decay electron assigned to targets
     - Type: std::vector[int], Size: 4
     - Example: (-1, -1, 0, -1)
 - `mu_index_SPANET`
-    - Muon indices of leptonic decay muon assigned to targets
+    - Muon indices* of leptonic decay muon assigned to targets
     - Type: std::vector[int], Size: 4
     - Example: (-1, -1, -1, 0)
 - `top_isHadronic_SPANET`
@@ -171,7 +171,7 @@ The script creates the following new variables and stores them in the final n-tu
     - Type: std::vector[float], Size: 4
     - Example: (0.1245, 0.3681, 0.0245, 0.2985)
 
-
+*Note: Jet index refers to index of a jet in TopCPToolkit variables `jet_pt`, `jet_eta`, etc. Electron index refers to index of an electron in TopCPToolkit variables `el_pt`, etc. Muon index refers to index of a muon in TopCPToolkit variables `mu_pt`, etc.
 
 
 
