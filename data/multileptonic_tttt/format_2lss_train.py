@@ -2,7 +2,7 @@ import h5py
 import sys
 import ROOT
 import numpy as np
-
+import glob
 maxjets = 16
 
 # Get root files from command line input
@@ -26,8 +26,20 @@ maxjets = 16
 
 chain = ROOT.TChain("reco")
 
-for n in sys.argv[2:]:
-    chain.Add(str(n))
+# for n in sys.argv[2:]:
+#     chain.Add(str(n))
+# Find all .root files in the folder
+
+folder_path = sys.argv[2]  # Make sure this is a directory, not a file
+print(folder_path)
+root_files = glob.glob(f"{folder_path}/*.root")
+print(root_files)
+# Add each file to the chain
+for root_file in root_files:
+    chain.Add(root_file)
+
+print(f"Added {len(root_files)} files to the chain.")
+
 
 tree = chain.CopyTree("pass_SSee_passECIDS_NOSYS||pass_SSem_passECIDS_NOSYS||pass_SSmm_NOSYS")
 

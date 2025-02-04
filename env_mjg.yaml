@@ -8,10 +8,9 @@ channels:
 
 dependencies:
   - python=3.9.19
-  - conda
   - pip
-  - onnx
 
+  # Core Libraries
   - numpy=1.24
   - sympy
   - scikit-learn
@@ -20,15 +19,21 @@ dependencies:
   - h5py
   - cytoolz
 
+  # PyTorch & CUDA
   - pytorch=2.1
-  - pytorch-lightning=2.0.7
-  - pytorch-cuda=12.1
+  - pytorch::pytorch-cuda=12.1  # Ensure PyTorch manages CUDA version
   - torchvision
   - torchaudio
 
+  # ONNX
+  - onnx=1.14
+
+  # ROOT Framework (High-Energy Physics)
+  - root  # Installs ROOT from conda-forge
+
+  # Logging & Visualization
   - tensorboard
   - tensorboardx
-
   - jupyterlab
   - seaborn
   - rich

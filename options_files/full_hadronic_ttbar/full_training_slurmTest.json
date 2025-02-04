@@ -39,7 +39,7 @@
     "partial_events": true,
     "balance_particles": true,
 
-    "dataset_limit": 0.25,
+    "dataset_limit": 0.5,
     "train_validation_split": 0.95,
     "batch_size": 2048,
     "num_dataloader_workers": 16,
@@ -62,7 +62,7 @@
     "gradient_clip": 0.0,
     "dropout": 0.0,
 
-    "epochs": 10,
+    "epochs": 50,
     "num_gpu": 1,
     "verbose_output": true
 }
