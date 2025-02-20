@@ -248,3 +248,4 @@ environment/
 *.h5
 *.root
 spanet_output/
+*.root
