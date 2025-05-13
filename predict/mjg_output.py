@@ -4,23 +4,45 @@ import h5py
 import sys
 import numpy as np
 from array import array
+import glob
 
+with open("/hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/SPANet/treesToKeep.txt") as f:
+    branches_to_keep = [line.strip() for line in f if line.strip()]
+    
+    
 hf = h5py.File(str(sys.argv[2]), 'r')
-
-# chain = ROOT.TChain("reco")
-# chain.Add(str(sys.argv[1]))
-# tree = chain.CopyTree("(pass_SSee_passECIDS_NOSYS||pass_SSem_passECIDS_NOSYS||pass_SSmm_NOSYS)&&(!(pass_eee_ZVeto_NOSYS||pass_eem_ZVeto_NOSYS||pass_emm_ZVeto_NOSYS||pass_mmm_ZVeto_NOSYS))&&(!pass_llll_NOSYS)")
-
-# output_file = ROOT.TFile.Open(str(sys.argv[3]), "RECREATE")
-
-
-
 chain = ROOT.TChain("reco")
-chain.Add(str(sys.argv[1]))
-tree = chain.CopyTree("(pass_SSee_passECIDS_NOSYS||pass_SSem_passECIDS_NOSYS||pass_SSmm_NOSYS)&&(!(pass_eee_ZVeto_NOSYS||pass_eem_ZVeto_NOSYS||pass_emm_ZVeto_NOSYS||pass_mmm_ZVeto_NOSYS))&&(!pass_llll_NOSYS)")
+folder_path = sys.argv[1]  # Make sure this is a directory, not a file
+print(folder_path)
+root_files = glob.glob(f"{folder_path}/*.root")
+print(root_files)
+# Add each file to the chain
+for root_file in root_files:
+    chain.Add(root_file)
+
+print(f"Added {len(root_files)} files to the chain.")
+
+chain.ls()
+
+# Disable all branches
+chain.SetBranchStatus("*", 0)
+
+# Enable only desired branches
+for branch in branches_to_keep:
+    chain.SetBranchStatus(branch)
+
+
+# Define the cut
+cut = "(pass_SSee_NOSYS||pass_SSem_NOSYS||pass_SSmm_NOSYS)"
+print("Pre Cut")
+tree = chain.CopyTree(cut)
+print("Post Cut")
 new_tree = tree.CloneTree(0)  # Create an empty clone with the same structure
+print("point 0")
 
 output_file = ROOT.TFile.Open(str(sys.argv[3]), "RECREATE")
+print("point 4")
+
 # tree = output_file.Get("reco")
 # num_entries = tree.GetEntries()
 # print(f"The tree contains {num_entries} events.")
@@ -42,10 +64,12 @@ mu_index_SPANET = ROOT.std.vector[int]()
 top_assign_prob_SPANET = ROOT.std.vector[float]()
 top_detect_prob_SPANET = ROOT.std.vector[float]()
 top_margin_prob_SPANET = ROOT.std.vector[float]()
+print("point 1")
 
 new_tree.Branch("top_m_SPANET", top_m_SPANET)
 new_tree.Branch("top_isHadronic_SPANET", top_isHadronic_SPANET)
 new_tree.Branch("W_m_SPANET", W_m_SPANET)
+print("point 3")
 
 new_tree.Branch("b_index_SPANET",  b_index_SPANET)
 new_tree.Branch("q1_index_SPANET",  q1_index_SPANET)
@@ -61,7 +85,6 @@ new_tree.Branch("top_margin_prob_SPANET", top_margin_prob_SPANET)
 
 def t_m(pt, eta, phi, e, b_index, j1_index, j2_index):
     b = Math.PtEtaPhiEVector()
-    print(b_index)
     b.SetCoordinates(pt[b_index], eta[b_index], phi[b_index], e[b_index])
 
     j1 = Math.PtEtaPhiEVector()
@@ -95,7 +118,6 @@ def mbl(pt, eta, phi, e, lepton_pt,lepton_eta,lepton_phi,lepton_e, b_index, l_in
     return bl.M()
 
 i = 0
-
 b1 = np.array(hf.get('TARGETS/t1/b'))
 q11 = np.array(hf.get('TARGETS/t1/q1'))
 q12 = np.array(hf.get('TARGETS/t1/q2'))
@@ -105,16 +127,12 @@ q21 = np.array(hf.get('TARGETS/t2/q1'))
 q22 = np.array(hf.get('TARGETS/t2/q2'))
 
 b3 = np.array(hf.get('TARGETS/t3/b'))
-print(b3)
 l3 = np.array(hf.get('TARGETS/t3/l'))
-print(l3)
-print(min(l3))
 
 b4 = np.array(hf.get('TARGETS/t4/b'))
 l4 = np.array(hf.get('TARGETS/t4/l'))
-print(min(l4))
-print(l3)
-print(l4)
+
+
 ap = np.array([np.array(hf.get('TARGETS/t1/assignment_probability')), np.array(hf.get('TARGETS/t2/assignment_probability')), np.array(hf.get('TARGETS/t3/assignment_probability')), np.array(hf.get('TARGETS/t4/assignment_probability'))])
 dp = np.array([np.array(hf.get('TARGETS/t1/detection_probability')), np.array(hf.get('TARGETS/t2/detection_probability')), np.array(hf.get('TARGETS/t3/detection_probability')), np.array(hf.get('TARGETS/t4/detection_probability'))])
 mp = np.array([np.array(hf.get('TARGETS/t1/marginal_probability')), np.array(hf.get('TARGETS/t2/marginal_probability')), np.array(hf.get('TARGETS/t3/marginal_probability')), np.array(hf.get('TARGETS/t4/marginal_probability'))])
@@ -131,7 +149,34 @@ lepton_e = np.array(hf.get('INPUTS/Lepton/e'))
 # l3 = l3-16
 # l4 = l4-16
 
+
+b1_og = np.array(hf.get('TARGETS_ORIGINAL/t1/b'))
+
+
 print(len(lepton_pt))
+
+print("q11: " , min(q11) , max(q11))
+print("q12: " ,min(q12) , max(q12))
+print("q21: ",min(q21) , max(q21))
+print("q22: ",min(q22) , max(q22))
+print("l3: ",min(l3) , max(l3))
+print("l4: ",min(l4) , max(l4))
+print("b1: ",min(b1) , max(b1))
+print("b2: ",min(b2) , max(b2))
+print("b3: ",min(b3) , max(b3))
+print("b4: ",min(b4) , max(b4))
+
+import matplotlib.pyplot as plt
+
+plt.figure()
+plt.hist(q22, bins=50, range=(-2, 20),  histtype='step', color='blue', label="b1") 
+plt.savefig("q22_output.pdf") #Save the plot
+plt.figure()
+plt.hist(l4, bins=50, range=(-2, 20),  histtype='step', color='blue', label="b1") 
+plt.savefig("l4_output.pdf") #Save the plot
+
+
+
 
 # For some reason some events have gone rogue and set 
 for j in range(len(l3)):
@@ -171,13 +216,16 @@ for event in tree:
         if (q22[i]>15):
             q22[i] =15
         if (q21[i]>15):
-            q21[i] =15           
+            q21[i] =15   
+        if (q12[i]>15):
+            q12[i] =15
+        if (q11[i]>15):
+            q11[i] =15  
+                    
             # continue
-        print(pt)
-        print(i)
-        print( b1[i])
-        print(b2[i])
-        
+        b_indices = [b1[i], b2[i], b3[i], b4[i]]
+        # print("b_indices: ", b_indices)
+
         tm1 = t_m(pt[i], eta[i], phi[i], e[i], b1[i], q11[i], q12[i])
         tm2 = t_m(pt[i], eta[i], phi[i], e[i], b2[i], q21[i], q22[i])
         # top_m = [tm1 if b1[i] >= 2 and q11[i] >= 2 and q12[i] >= 2 and tm1 > 0 else -1, tm2 if b2[i] >= 2 and q21[i] >= 2 and q22[i] >= 2 and tm2 > 0 else -1]
@@ -224,20 +272,20 @@ for event in tree:
     for t in top_had:
         top_isHadronic_SPANET.push_back(t)
 
-    b_index_SPANET.clear()
-    b_index_SPANET.reserve(4)
-    for j in b_indices:
-        b_index_SPANET.push_back(j)
+    # b_index_SPANET.clear()
+    # b_index_SPANET.reserve(4)
+    # for j in b_indices:
+    #     b_index_SPANET.push_back(j)
 
-    q1_index_SPANET.clear()
-    q1_index_SPANET.reserve(4)
-    for j in q1_indices:
-        q1_index_SPANET.push_back(j)
+    # q1_index_SPANET.clear()
+    # q1_index_SPANET.reserve(4)
+    # for j in q1_indices:
+    #     q1_index_SPANET.push_back(j)
 
-    q2_index_SPANET.clear()
-    q2_index_SPANET.reserve(4)
-    for j in q2_indices:
-        q2_index_SPANET.push_back(j)
+    # q2_index_SPANET.clear()
+    # q2_index_SPANET.reserve(4)
+    # for j in q2_indices:
+    #     q2_index_SPANET.push_back(j)
 
     mbl_SPANET.clear()
     mbl_SPANET.reserve(4)

@@ -1,0 +1,113 @@
+# ---------------------------------------------------
+# REQUIRED - INPUTS - List all inputs to SPANet here.
+# ---------------------------------------------------
+INPUTS:
+  # -----------------------------------------------------------------------------
+  # REQUIRED - SEQUENTIAL - inputs which can have an arbitrary number of vectors.
+  # -----------------------------------------------------------------------------
+  SEQUENTIAL:
+    Jet:
+      e: log_normalize
+      pt: log_normalize
+      eta: normalize
+      phi: normalize
+      btag: none
+    Lepton:
+      e: log_normalize
+      pt: log_normalize
+      eta: normalize
+      phi: normalize
+      mtag: none
+      etag: none
+      q: none
+
+  # ---------------------------------------------------------------------
+  # REQUIRED - GLOBAL - inputs which will have a single vector per event.
+  # ---------------------------------------------------------------------
+  GLOBAL:
+    Met:
+      met_met: log_normalize
+      met_sin_phi: normalize
+      met_cos_phi: normalize
+
+
+# ----------------------------------------------------------------------
+# REQUIRED - EVENT - Complete list of resonance particles and daughters.
+# ----------------------------------------------------------------------
+EVENT:
+  t1:
+    - q1: Jet
+    - q2: Jet
+    - b: Jet
+  t2:
+    - q1: Jet
+    - q2: Jet
+    - b: Jet
+  t3:
+    - l: Lepton
+    - b: Jet
+  t4:
+    - l: Lepton
+    - b: Jet
+
+# ---------------------------------------------------------
+# REQUIRED KEY - PERMUTATIONS - List of valid permutations.
+# ---------------------------------------------------------
+PERMUTATIONS:
+    EVENT:
+      - [ t1, t2 ]
+      - [ t3, t4 ]
+    t1:
+      - [ q1, q2 ]
+    t2:
+      - [ q1, q2 ]
+
+
+# ------------------------------------------------------------------------------
+# REQUIRED - REGRESSIONS - List of desired features to regress from observables.
+# ------------------------------------------------------------------------------
+REGRESSIONS:
+    # EVENT:
+    #         - t4_neutrino_eta
+    #         - t4_neutrino_cos_phi
+    #         - t4_neutrino_sin_phi     
+    #         - t3_neutrino_eta
+    #         - t3_neutrino_cos_phi
+    #         - t3_neutrino_sin_phi     
+
+# ##
+# REGRESSIONS:
+#     # t1:
+#     #     - PARTICLE:
+#     #         - t1_top_mass
+#     #         - t1_top_pt
+#     #         - t1_top_eta
+#     #         - t1_top_phi
+#     # t2:
+#     #     - PARTICLE:
+#     #         - t2_top_mass
+#     #         - t2_top_pt
+#     #         - t2_top_eta
+#     #         - t2_top_phi
+#      t3:
+#         - PARTICLE:
+#             # - t3_top_mass
+#             # - t3_top_pt
+#             # - t3_top_eta
+#             # - t3_top_phi
+#             - t3_neutrino_eta
+#             - t3_neutrino_cos_phi
+#             - t3_neutrino_sin_phi       
+#      t4:
+#         - PARTICLE:
+#             # - t4_top_mass
+#             # - t4_top_pt
+#             # - t4_top_eta
+#             # - t4_top_phi
+#             - t4_neutrino_eta
+#             - t4_neutrino_cos_phi
+#             - t4_neutrino_sin_phi     
+# -----------------------------------------------------------------------------
+# REQUIRED - REGRESSIONS - List of desired classes to predict from observables.
+# -----------------------------------------------------------------------------
+CLASSIFICATIONS:

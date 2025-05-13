@@ -1,3 +1,23 @@
+# mjg quick notes:
+
+Pre-processing:
+```python data/multileptonic_tttt/format_2lss_train.py FOLDER_TO_NTUPLES```
+Training:
+```python -m spanet.train -of options_files/multileptonic_tttt/2lss_wLeps_mjg_wNu.json --time_limit 00:05:00:00 --gpus 1```
+
+
+python -m spanet.predict ./spanet_output/version_32 ../run/spanet_results_geq_v01.h5 -tf ../run/03_04_2025/full_testSet.h5 --gpu
+
+python predict/mjg_output.py /hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/root-files/dean_samples/test-set/user.bdong.38312117._000002.output.root  ../run/old_test/spanet_output_good_v01.h5 ../run/old_test/wSPANet_good_v01.root
+
+
+python ../../SPANet/predict/mjg_output.py /hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/root-files/dean_samples/test-set/user.bdong.38312117._000002.output.root  spanet_results_geq_v01.h5  spanet_results_geq_v01.root
+
+
+
+
+
+
 # SPANet for 4Tops
 
 Forked library with additional tools to create and use `SPANet` models to reconstruct four top quark (tttt) decays in the 2LSS, 3L and 4L channels with ATLAS data.

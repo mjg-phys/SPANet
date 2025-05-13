@@ -21,6 +21,7 @@ INPUTS:
       etag: none
       q: none
 
+
   # ---------------------------------------------------------------------
   # REQUIRED - GLOBAL - inputs which will have a single vector per event.
   # ---------------------------------------------------------------------
@@ -63,7 +64,6 @@ PERMUTATIONS:
 # REQUIRED - REGRESSIONS - List of desired features to regress from observables.
 # ------------------------------------------------------------------------------
 REGRESSIONS:
-
 
 # -----------------------------------------------------------------------------
 # REQUIRED - REGRESSIONS - List of desired classes to predict from observables.

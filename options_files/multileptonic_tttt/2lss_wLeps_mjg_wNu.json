@@ -29,9 +29,11 @@
 
     "skip_connections": true,
     "initial_embedding_skip_connections": true,
-    "event_info_file": "/eos/user/d/dreiter/SPANet/event_files/tttt_2lss_multi.yaml",
-    "training_file": "/eos/user/d/dreiter/SPANet/data/multileptonic_tttt/tttt_2lss_multi_412043_412044_700355_training.h5",
-
+    "event_info_file": "event_files/tttt_2lss_wNus.yaml",
+    "training_file": "/hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/data/tttt_2LSS_wNu/train_wNus.h5",
+    "testing_file": "/hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/data/tttt_2LSS_wNu/val_wNus.h5",
+    "training_file": "/scratchdata1/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/run/04_28_2025/train_newMatching.h5",
+    "testing_file": "/scratchdata1/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/run/04_28_2025/val_newMatching.h5",
     "normalize_features": true,
     "limit_to_num_jets": 0,
 
@@ -48,7 +50,7 @@
     "combine_pair_loss": "min",
     "optimizer": "AdamW",
     "focal_gamma": 0.0,
-    "learning_rate": 0.0015,
+    "learning_rate": 0.0001,
     "learning_rate_cycles": 1,
     "learning_rate_warmup_epochs": 1.0,
 
@@ -62,7 +64,7 @@
     "gradient_clip": 0.0,
     "dropout": 0.0,
 
-    "epochs": 500,
+    "epochs": 50,
     "num_gpu": 1,
     "verbose_output": true
 }
