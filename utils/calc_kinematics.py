@@ -6,82 +6,6 @@ import numpy as np
 from array import array
 import glob
 
-with open("/hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/SPANet/treesToKeep.txt") as f:
-    branches_to_keep = [line.strip() for line in f if line.strip()]
-    
-hf = h5py.File(str(sys.argv[2]), 'r')
-chain = ROOT.TChain("reco")
-folder_path = sys.argv[1]  # Make sure this is a directory, not a file
-print(folder_path)
-root_files = glob.glob(f"{folder_path}/*.root")
-print(root_files)
-# Add each file to the chain
-for root_file in root_files:
-    chain.Add(root_file)
-
-print(f"Added {len(root_files)} files to the chain.")
-
-chain.ls()
-
-# Disable all branches
-chain.SetBranchStatus("*", 0)
-
-# Enable only desired branches
-for branch in branches_to_keep:
-    chain.SetBranchStatus(branch)
-
-
-# Define the cut
-cut = "(pass_SSee_NOSYS||pass_SSem_NOSYS||pass_SSmm_NOSYS)"
-print("Pre Cut")
-tree = chain.CopyTree(cut)
-print("Post Cut")
-new_tree = tree.CloneTree(0)  # Create an empty clone with the same structure
-print("point 0")
-
-output_file = ROOT.TFile.Open(str(sys.argv[3]), "RECREATE")
-print("point 4")
-
-# tree = output_file.Get("reco")
-# num_entries = tree.GetEntries()
-# print(f"The tree contains {num_entries} events.")
-# exit()
-
-
-top_m_SPANET = ROOT.std.vector[float]()
-top_isHadronic_SPANET = ROOT.std.vector[int]()
-W_m_SPANET = ROOT.std.vector[float]()
-
-b_index_SPANET = ROOT.std.vector[int]()
-q1_index_SPANET = ROOT.std.vector[int]()
-q2_index_SPANET = ROOT.std.vector[int]()
-
-mbl_SPANET = ROOT.std.vector[float]()
-el_index_SPANET = ROOT.std.vector[int]()
-mu_index_SPANET = ROOT.std.vector[int]()
-
-top_assign_prob_SPANET = ROOT.std.vector[float]()
-top_detect_prob_SPANET = ROOT.std.vector[float]()
-top_margin_prob_SPANET = ROOT.std.vector[float]()
-print("point 1")
-
-new_tree.Branch("top_m_SPANET", top_m_SPANET)
-new_tree.Branch("top_isHadronic_SPANET", top_isHadronic_SPANET)
-new_tree.Branch("W_m_SPANET", W_m_SPANET)
-print("point 3")
-
-new_tree.Branch("b_index_SPANET",  b_index_SPANET)
-new_tree.Branch("q1_index_SPANET",  q1_index_SPANET)
-new_tree.Branch("q2_index_SPANET", q2_index_SPANET)
-
-new_tree.Branch("mbl_SPANET",  mbl_SPANET)
-new_tree.Branch("el_index_SPANET", el_index_SPANET)
-new_tree.Branch("mu_index_SPANET",  mu_index_SPANET)
-
-new_tree.Branch("top_assign_prob_SPANET", top_assign_prob_SPANET)
-new_tree.Branch("top_detect_prob_SPANET",  top_detect_prob_SPANET)
-new_tree.Branch("top_margin_prob_SPANET", top_margin_prob_SPANET)
-
 def t_m(pt, eta, phi, e, b_index, j1_index, j2_index):
     b = Math.PtEtaPhiEVector()
     b.SetCoordinates(pt[b_index], eta[b_index], phi[b_index], e[b_index])
@@ -114,9 +38,15 @@ def mbl(pt, eta, phi, e, lepton_pt,lepton_eta,lepton_phi,lepton_e, b_index, l_in
     l.SetCoordinates(lepton_pt[l_index], lepton_eta[l_index], lepton_phi[l_index],lepton_e[l_index])
     
     bl = b + l
+    
+    # if (bl.M() == 0):
+    #     return np.nan
+    
     return bl.M()
 
-i = 0
+
+hf = h5py.File(str(sys.argv[1]), 'r+')
+
 b1 = np.array(hf.get('TARGETS/t1/b'))
 q11 = np.array(hf.get('TARGETS/t1/q1'))
 q12 = np.array(hf.get('TARGETS/t1/q2'))
@@ -131,7 +61,6 @@ l3 = np.array(hf.get('TARGETS/t3/l'))
 b4 = np.array(hf.get('TARGETS/t4/b'))
 l4 = np.array(hf.get('TARGETS/t4/l'))
 
-
 ap = np.array([np.array(hf.get('TARGETS/t1/assignment_probability')), np.array(hf.get('TARGETS/t2/assignment_probability')), np.array(hf.get('TARGETS/t3/assignment_probability')), np.array(hf.get('TARGETS/t4/assignment_probability'))])
 dp = np.array([np.array(hf.get('TARGETS/t1/detection_probability')), np.array(hf.get('TARGETS/t2/detection_probability')), np.array(hf.get('TARGETS/t3/detection_probability')), np.array(hf.get('TARGETS/t4/detection_probability'))])
 mp = np.array([np.array(hf.get('TARGETS/t1/marginal_probability')), np.array(hf.get('TARGETS/t2/marginal_probability')), np.array(hf.get('TARGETS/t3/marginal_probability')), np.array(hf.get('TARGETS/t4/marginal_probability'))])
@@ -145,8 +74,20 @@ lepton_pt = np.array(hf.get('INPUTS/Lepton/pt'))
 lepton_eta = np.array(hf.get('INPUTS/Lepton/eta'))
 lepton_phi = np.array(hf.get('INPUTS/Lepton/phi'))
 lepton_e = np.array(hf.get('INPUTS/Lepton/e'))
+lepton_pt = np.pad(lepton_pt, ((0, 0), (16, 0)), mode='constant', constant_values=0)
+lepton_eta = np.pad(lepton_eta, ((0, 0), (16, 0)), mode='constant', constant_values=0)
+lepton_phi = np.pad(lepton_phi, ((0, 0), (16, 0)), mode='constant', constant_values=0)
+lepton_e = np.pad(lepton_e, ((0, 0), (16, 0)), mode='constant', constant_values=0)
+
 
 b1_og = np.array(hf.get('TARGETS_ORIGINAL/t1/b'))
+
+# regressions_spanet = hf.create_group('REGRESSIONS_SPANET')
+
+# t1 = regressions_spanet.create_group('t1')
+# t2 = regressions_spanet.create_group('t2')
+# t3 = regressions_spanet.create_group('t3')
+# t4 = regressions_spanet.create_group('t4')
 
 
 print(len(lepton_pt))
@@ -162,31 +103,13 @@ print("b2: ",min(b2) , max(b2))
 print("b3: ",min(b3) , max(b3))
 print("b4: ",min(b4) , max(b4))
 
-import matplotlib.pyplot as plt
 
-plt.figure()
-plt.hist(q22, bins=50, range=(-2, 20),  histtype='step', color='blue', label="b1") 
-plt.savefig("q22_output.pdf") #Save the plot
-plt.figure()
-plt.hist(l4, bins=50, range=(-2, 20),  histtype='step', color='blue', label="b1") 
-plt.savefig("l4_output.pdf") #Save the plot
+top_m_SPANET = []
+top_isHadronic_SPANET = []
+W_m_SPANET = []
+mbl_SPANET = []
 
-
-
-
-# For some reason some events have gone rogue and set 
-for j in range(len(l3)):
-    if (l3[j] ==16 or l4[j]==17):
-        l3[j] = 1
-        l4[j] = 0
-    else:
-        l3[j] = 0
-        l4[j] =1
-
-# print(max(l3))
-# exit()
-
-for event in tree: 
+for i in range(len(b1)): 
     b_indices = [-1,-1,-1,-1]
     q1_indices = [-1,-1,-1,-1]
     q2_indices = [-1,-1,-1,-1]
@@ -234,7 +157,6 @@ for event in tree:
 
         etag = np.array(hf.get('INPUTS/Source/etag'))
         mtag = np.array(hf.get('INPUTS/Source/mtag'))
-
         mbl3 = mbl(pt[i], eta[i], phi[i], e[i], lepton_pt[i], lepton_eta[i], lepton_phi[i], lepton_e[i], b3[i], l3[i])
         mbl4 = mbl(pt[i], eta[i], phi[i], e[i], lepton_pt[i], lepton_eta[i], lepton_phi[i], lepton_e[i], b4[i], l4[i])
         m_bl = [-1, -1, mbl3, mbl4]
@@ -251,71 +173,48 @@ for event in tree:
         top_detect_prob = [dp[t][i] for t in range(4)]
 
         top_margin_prob = [mp[t][i] for t in range(4)]
-
-
-    top_m_SPANET.clear()
-    top_m_SPANET.reserve(4)
-    for m in top_m:
-        top_m_SPANET.push_back(m)
         
-    W_m_SPANET.clear()
-    W_m_SPANET.reserve(4)
-    for m in W_mass:
-        W_m_SPANET.push_back(m)
+    top_m_SPANET.append(top_m)
+    W_m_SPANET.append(W_mass)
+    mbl_SPANET.append(m_bl)
 
-    top_isHadronic_SPANET.clear()
-    top_isHadronic_SPANET.reserve(4)
-    for t in top_had:
-        top_isHadronic_SPANET.push_back(t)
+    # for m in top_m:
+    #     top_m_SPANET.push_back(m)
+        
+    # for m in W_mass:
+    #     W_m_SPANET.push_back(m)
 
-    # b_index_SPANET.clear()
-    # b_index_SPANET.reserve(4)
-    # for j in b_indices:
-    #     b_index_SPANET.push_back(j)
+    # for t in top_had:
+    #     top_isHadronic_SPANET.push_back(t)
 
-    # q1_index_SPANET.clear()
-    # q1_index_SPANET.reserve(4)
-    # for j in q1_indices:
-    #     q1_index_SPANET.push_back(j)
+    # for j in m_bl:
+    #     mbl_SPANET.push_back(j)
 
-    # q2_index_SPANET.clear()
-    # q2_index_SPANET.reserve(4)
-    # for j in q2_indices:
-    #     q2_index_SPANET.push_back(j)
+print(hf)
+regression_group = hf['REGRESSIONS']
+t1_reg = regression_group["t1"]
+t2_reg = regression_group["t2"]
+t3_reg = regression_group["t3"]
+t4_reg = regression_group["t4"]
 
-    mbl_SPANET.clear()
-    mbl_SPANET.reserve(4)
-    for j in m_bl:
-        mbl_SPANET.push_back(j)
+t1_mass = [arr[0] for arr in top_m_SPANET]
+t2_mass = [arr[1] for arr in top_m_SPANET]
 
-    # el_index_SPANET.clear()
-    # el_index_SPANET.reserve(4)
-    # for j in el_index:
-    #     el_index_SPANET.push_back(j)    
-    
-    # mu_index_SPANET.clear()
-    # mu_index_SPANET.reserve(4)
-    # for j in mu_index:
-    #     mu_index_SPANET.push_back(j)  
+w1_mass = [arr[0] for arr in W_m_SPANET]
+w2_mass = [arr[1] for arr in W_m_SPANET]
 
-    top_assign_prob_SPANET.clear()
-    top_assign_prob_SPANET.reserve(4)
-    for j in top_assign_prob:
-        top_assign_prob_SPANET.push_back(j)
+mbl3 = [arr[2] for arr in mbl_SPANET]
+mbl4 = [arr[3] for arr in mbl_SPANET]
 
-    top_detect_prob_SPANET.clear()
-    top_detect_prob_SPANET.reserve(4)
-    for j in top_detect_prob:
-        top_detect_prob_SPANET.push_back(j)
+t1_reg.create_dataset('tMass_SPANET', data=t1_mass)
+t2_reg.create_dataset('tMass_SPANET', data=t2_mass)
 
-    top_margin_prob_SPANET.clear()
-    top_margin_prob_SPANET.reserve(4)
-    for j in top_margin_prob:
-        top_margin_prob_SPANET.push_back(j)
+t1_reg.create_dataset('wMass_SPANET', data=w1_mass)
+t2_reg.create_dataset('wMass_SPANET', data=w2_mass)
 
-    # print(top_m)
-    new_tree.Fill()      
-    i+=1
+t3_reg.create_dataset('mbl_SPANET', data=mbl3)
+print(mbl3)
+t4_reg.create_dataset('mbl_SPANET', data=mbl4)
 
-new_tree.Write()
-output_file.Close()
+print(mbl4)
+

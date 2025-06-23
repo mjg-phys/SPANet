@@ -223,10 +223,32 @@ class JetReconstructionDataset(Dataset):
         return targets
 
     def tree_key_data(self, hdf5_file: h5py.File, limit_index, root, group, index):
+        print("group: ",  group)
+        print("root: ", root)
+        print("index: ", index)
+
         key = "/".join((*group, index))
+        print("constructed key: ", key)
+        print("hdf5_file: ", hdf5_file.filename)
+
+        # Construct full group path
+        group_string = "/".join([root] + list(group))
+        print("group_string: ", group_string)
+
+        # group_string = "REGRESSIONS"
+        # Debug: check if group_string exists and list keys
+        if group_string in hdf5_file:
+            print(f"Keys under '{group_string}': {list(hdf5_file[group_string].keys())}")
+        else:
+            print(f"Group '{group_string}' not found in file.")
+            print(f"Top-level keys: {list(hdf5_file.keys())}")
+            raise KeyError(f"Group '{group_string}' does not exist in the HDF5 file.")
+
+        # Proceed with loading dataset
         data = self.dataset(hdf5_file, [root, *group], index)
         data = torch.from_numpy(data[:][limit_index])
         return key, data
+
 
     def load_regressions(self, hdf5_file: h5py.File, limit_index: np.ndarray) -> Tuple[Dict[str, Tensor], Dict[str, str]]:
         tree_key_data = functools.partial(self.tree_key_data, hdf5_file, limit_index, SpecialKey.Regressions)
@@ -236,12 +258,20 @@ class JetReconstructionDataset(Dataset):
         for target in self.event_info.regressions[SpecialKey.Event]:
             key, data = tree_key_data([SpecialKey.Event], target.name)
             targets[key] = data
+            print(target)
             types[key] = target.type
 
         for particle in self.event_info.event_particles:
-            for target in self.event_info.regressions[particle][SpecialKey.Particle]:
-                key, data = tree_key_data([particle, SpecialKey.Particle], target.name)
+            print("particle: " ,  particle)
+            for target in self.event_info.regressions[particle][SpecialKey.Particle]: #[SpecialKey.Particle]:
+                print("target: ", target)
+                # target="tMass"
+                # print(target.name)
+                key, data = tree_key_data([particle], target)
+
+                # key, data = tree_key_data([particle, SpecialKey.Particle], target)
                 targets[key] = data
+                print(target)
                 types[key] = target.type
 
             for daughter in self.event_info.product_particles[particle]:

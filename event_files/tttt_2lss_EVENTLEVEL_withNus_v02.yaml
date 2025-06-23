@@ -66,23 +66,33 @@ PERMUTATIONS:
 # ------------------------------------------------------------------------------
 # REQUIRED - REGRESSIONS - List of desired features to regress from observables.
 # ------------------------------------------------------------------------------
-# REGRESSIONS:
-    # EVENT:
-    #         - t4_neutrino_eta
-    #         - t4_neutrino_cos_phi
-    #         - t4_neutrino_sin_phi     
-    #         - t3_neutrino_eta
-    #         - t3_neutrino_cos_phi
-    #         - t3_neutrino_sin_phi     
+REGRESSIONS:
+    EVENT:
+        - t1_tMass
+        - t2_tMass
+        - t1_wMass
+        - t2_wMass
+        - t3_mbl
+        - t4_mbl
+
+        # - t4_nu_eta
+        # - t4_nu_px
+        # - t4_nu_py
+        # - t4_nu_pz
+        # - t3_nu_eta
+        # - t3_nu_px
+        # - t3_nu_py
+        # - t3_nu_pz
+
 
 # ##
-REGRESSIONS:
-    PARTICLE:
-      t1:
-        tMass: tMass
-    PARTICLE:
-      t2:
-        tMass: tMass
+# REGRESSIONS:
+#     PARTICLE:
+#       t1:
+#         tMass: tMass
+#     PARTICLE:
+#       t2:
+#         tMass: tMass
 
 # REGRESSIONS:
 #     t1:

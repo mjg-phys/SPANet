@@ -5,305 +5,76 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 from train_test_splitter import  filter_and_save_h5,count_events,filter_and_save_h5_random
+from helper_functions import delta_phi, delta_r, resolve_conflict
+from helper_functions import resolve_internal_duplicates, match_partons_to_jets
+from helper_functions import calculate_invariant_mass,plot_pie_chart_from_array
+from helper_functions import pt_eta_phi_to_pxyz
 maxjets = 16
 import math
 import os
 
-def delta_phi(phi1, phi2):
-    """Calculate the difference in phi between two angles, wrapped to [-π, π]."""
-    dphi = phi1 - phi2
-    while dphi > math.pi:
-        dphi -= 2 * math.pi
-    while dphi < -math.pi:
-        dphi += 2 * math.pi
-    return dphi
-
-def delta_r(eta1, phi1, eta2, phi2):
-    """Calculate delta R between two particles with (eta, phi) coordinates."""
-    deta = eta1 - eta2
-    dphi = delta_phi(phi1, phi2)
-    return math.sqrt(deta**2 + dphi**2)
-
-
-def resolve_conflict(index_list_a, deltaR_list_a, index_list_b, deltaR_list_b, verbose=False):
-    for i, idx in enumerate(index_list_a):
-        if idx != -1 and idx in index_list_b:
-            j = index_list_b.index(idx)
-            if deltaR_list_a[i] <= deltaR_list_b[j]:
-                index_list_b[j] = -1
-            else:
-                if verbose:
-                    print(deltaR_list_a[i])
-                index_list_a[i] = -1
-
-def resolve_internal_duplicates(index_list, deltaR_list):
-    for i, idx in enumerate(index_list):
-        if idx == -1:
-            continue
-        for j in range(i + 1, len(index_list)):
-            if index_list[j] == idx:
-                if deltaR_list[i] <= deltaR_list[j]:
-                    index_list[j] = -1
-                else:
-                    index_list[i] = -1
-                    break  # No need to keep checking once i is invalidated
-
-def match_partons_to_jets(
-    parton_eta, parton_phi, pdg_ids, jet_eta, jet_phi, 
-    reco_index_new, deltaR_new, deltaR_tolerance,  
-    wd1_el_index_new  = None, wd1_mu_index_new=None, nElectrons=None, reco_index_original=None, max_deltaR_holder=None, 
-    skip_neutrinos=False, label="", DEBUG = False
-):
-    for i in range(len(parton_eta)):
-        if skip_neutrinos and abs(pdg_ids[i]) in (12, 14,16):
-            continue
-
-        min_deltaR = .4
-        min_index = -1
-        eta1, phi1 = parton_eta[i], parton_phi[i]
-
-        for j in range(len(jet_eta)):
-            if jet_eta[j] == 0:
-                continue
-            dR = delta_r(eta1, phi1, jet_eta[j], jet_phi[j])
-            if dR < min_deltaR:
-                min_deltaR = dR
-                min_index = j
-
-        if min_deltaR < deltaR_tolerance:
-            reco_index_new[i] = min_index
-            deltaR_new[i] = min_deltaR
-
-        if DEBUG:
-            print(f"{label} minimum_deltaR: {min_deltaR}, index: {min_index}", end="")
-            if pdg_ids is not None:
-                print(f", pdgId: {pdg_ids[i]}")
-            else:
-                print()
-
-        # Check for lepton mapping to 16 or 17
-        if pdg_ids is not None and abs(pdg_ids[i]) in (11, 13,15):  # electron or muon or tau 
-            if min_index not in (16, 17):
-                # print(f"⚠️  Warning: {label} lepton (pdgId {pdg_ids[i]}) matched to suspicious jet index {min_index}")
-                reco_index_new[i] = -1
-                continue
-            else:
-                if nElectrons == 0:
-                    if min_index ==16:
-                        wd1_el_index_new[i] = 0
-                    else:
-                        wd1_el_index_new[i] = 1
-                if nElectrons == 1:
-                    if min_index ==16:
-                        wd1_el_index_new[i] = 0
-                    else:
-                        wd1_mu_index_new[i] = 0
-                if nElectrons == 2:
-                    if min_index ==16:
-                        wd1_mu_index_new[i] = 0
-                    else:
-                        wd1_mu_index_new[i] = 1                        
-
-                    
-                
-
-        if pdg_ids is not None and abs(pdg_ids[i]) not in (11, 13,15):  # electron or muon or tau
-            if min_index in (16, 17):
-                # print(f"⚠️  Warning: {label} jet (pdgId {pdg_ids[i]}) matched to suspicious lepton index {min_index}")
-                reco_index_new[i] = -1
-                continue           
-        if (label=="b" and min_index in (16, 17)):
-                # print(f"⚠️  Warning: {label} jet  matched to suspicious lepton index {min_index}")
-                reco_index_new[i] = -1
-                # continue    
-            
-                
-        # Update max deltaR if needed
-        if (
-            max_deltaR_holder is not None and 
-            reco_index_original is not None and
-            min_index == reco_index_original[i] and
-            min_deltaR > max_deltaR_holder[0]
-        ):
-            max_deltaR_holder[0] = min_deltaR
-
-
-
-def calculate_invariant_mass(four_vec1, four_vec2):
-    """
-    Calculates the invariant mass of a system given two four-vectors.
-
-    Args:
-        four_vec1: numpy array or list [E1, px1, py1, pz1]
-        four_vec2: numpy array or list [E2, px2, py2, pz2]
-
-    Returns:
-        Invariant mass (float)
-    """
-    p1 = np.array(four_vec1)
-    p2 = np.array(four_vec2)
-    total = p1 + p2
-    mass_squared = total[0]**2 - np.dot(total[1:], total[1:])
-    return np.sqrt(mass_squared) if mass_squared > 0 else 0.0
-
-
-def pt_eta_phi_e_to_px_py_pz_e(pt, eta, phi, E):
-    px = pt * np.cos(phi)
-    py = pt * np.sin(phi)
-    pz = pt * np.sinh(eta)
-    return np.array([E, px, py, pz])
-
-def calculate_invariant_mass_from_pt_eta_phi_e(particle1, particle2):
-    """
-    Calculates invariant mass given two particles defined by (pt, eta, phi, E).
-
-    Args:
-        particle1, particle2: tuples or lists of the form (pt, eta, phi, E)
-
-    Returns:
-        Invariant mass (float)
-    """
-    vec1 = pt_eta_phi_e_to_px_py_pz_e(*particle1)
-    vec2 = pt_eta_phi_e_to_px_py_pz_e(*particle2)
-    total = vec1 + vec2
-    mass_squared = total[0]**2 - np.dot(total[1:], total[1:])
-    return np.sqrt(mass_squared) if mass_squared > 0 else 0.0
-
-def calculate_invariant_mass_3quarks(q1, q2, q3):
-    vec1 = pt_eta_phi_e_to_px_py_pz_e(*q1)
-    vec2 = pt_eta_phi_e_to_px_py_pz_e(*q2)
-    vec3 = pt_eta_phi_e_to_px_py_pz_e(*q3)
-    total = vec1 + vec2 + vec3
-    mass_squared = total[0]**2 - np.dot(total[1:], total[1:])
-    return np.sqrt(mass_squared) if mass_squared > 0 else 0.0
-
-def calculate_invariant_mass(*quarks):
-    """
-    Calculates invariant mass given 1 to 3 quarks in (pt, eta, phi, E) format.
-
-    Args:
-        quarks: variable number of quark 4-vectors, each a tuple (pt, eta, phi, E)
-
-    Returns:
-        Invariant mass (float)
-    """
-    if len(quarks) == 0 or len(quarks) > 3:
-        raise ValueError("Must provide between 1 and 3 quark four-vectors.")
-
-    total_vec = np.zeros(4)  # [E, px, py, pz]
-
-    for q in quarks:
-        total_vec += pt_eta_phi_e_to_px_py_pz_e(*q)
-
-    mass_squared = total_vec[0]**2 - np.dot(total_vec[1:], total_vec[1:])
-    return np.sqrt(mass_squared) if mass_squared > 0 else 0.0
-
-
-
-
-
-# Get root files from command line input
-
-#TRAINING NTUPLES
-# /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20a/*412043*/*000003* /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20d/*412043*/* /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20e/*412043*/* /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20*/*412044*/* /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20*/*700355*/* 
-
-
-
-#412043 mc20a /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20a/*412043*/*000003*
-#412043 mc20d /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20d/*412043*/* 
-#412043 mc20e /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20e/*412043*/* 
-#412044 mc20ade /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20*/*412044*/* 
-#700355 mc20ade /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20*/*700355*/* 
-
-
-# TESTING NTUPLE
-#412043 mc20a /eos/atlas/atlascerngroupdisk/phys-top/topplusx/4tops2021/Run3/FullValidation/mc20a/*412043*/*000002*
-
-
 chain = ROOT.TChain("reco")
-
 
 maximum_deltaR_bparton = 0
 maximum_deltaR_Wd1 = 0
 maximum_deltaR_Wd2 = 0
+nEvent = 100000000
+doDeltaRMatching = True 
+do_fuzzy_matching = True
+doDEBUG = False
+addTruthInformation = True
+prefix = "newMatching_v8"
 
-# for n in sys.argv[2:]:
-#     chain.Add(str(n))
-# Find all .root files in the folder
+# Only keep the branches that you need for the preprocessing so it doesnt take forever. 
 with open("/hpcfs/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/SPANet/treesToKeep.txt") as f:
     branches_to_keep = [line.strip() for line in f if line.strip()]
-    
-    
+
+
+# Get the ROOT files
 folder_path = sys.argv[2]  # Make sure this is a directory, not a file
-print(folder_path)
 root_files = glob.glob(f"{folder_path}/*.root")
-print(root_files)
-# Add each file to the chain
 for root_file in root_files:
     chain.Add(root_file)
 
 print(f"Added {len(root_files)} files to the chain.")
 
-chain.ls()
 
+# Uncomment this to get all the branches
 # for branch in chain.GetListOfBranches():
 #     print(branch.GetName())
 # exit()
 
-# Disable all branches
+# Disable all branches and enable only desired branches
 chain.SetBranchStatus("*", 0)
-
-# Enable only desired branches
 for branch in branches_to_keep:
     chain.SetBranchStatus(branch, 1)
 
-# Define the cut
-cut = "(pass_SSee_NOSYS||pass_SSem_NOSYS||pass_SSmm_NOSYS)"
-print("Pre Cut")
-# Copy the tree with the cut
+cut_2LSS = "(pass_SSee_NOSYS||pass_SSem_NOSYS||pass_SSmm_NOSYS)"
+cut_3L = "(pass_eee_ZVeto_NOSYS||pass_eem_ZVeto_NOSYS||pass_emm_ZVeto_NOSYS||pass_mmm_ZVeto_NOSYS)"
+cut = None
 
 
-nEvent = 100000000
-doDeltaRMatching = True
-prefix = "oldMatching_v8"
+do2LSS = True
+do3L = False
 
+if do2LSS:
+    cut = cut_2LSS
+else if do3L:
+    cut = cut_3L
+else:
+    print("Please select either 2LSS or 3L")
+    exit()
+
+# Define the cut and do it
 tree = chain.CopyTree(cut,"", nEvent)
-print("Post Cut")
 
 name = str(sys.argv[1])
 
 if '.h5' not in name:
     name += '.h5'
 
-# Set up h5 file strutcture 
-
-
-hf = h5py.File(name, 'w')
-
-inputs = hf.create_group('INPUTS')
-targets = hf.create_group('TARGETS')
-targets_original = hf.create_group('TARGETS_ORIGINAL')
-regressions = hf.create_group('REGRESSIONS')
-
-# classes = hf.create_group('CLASSIFICATIONS')
-
-t1 = targets.create_group('t1')
-t2 = targets.create_group('t2')
-t3 = targets.create_group('t3')
-t4 = targets.create_group('t4')
-
-
-t1_og = targets_original.create_group('t1')
-t2_og = targets_original.create_group('t2')
-t3_og = targets_original.create_group('t3')
-t4_og = targets_original.create_group('t4')
-
-
 
 running_count= []
-
-do_fuzzy_matching = True
-
 
 emptylist = [[0]*maxjets]*tree.GetEntries()
 
@@ -315,7 +86,7 @@ jet_mask, jet_eta, jet_etag, jet_btag, jet_mtag, jet_phi, jet_pt, jet_e, jet_q =
 lepton_mask, lepton_eta, lepton_etag, lepton_btag, lepton_mtag, lepton_phi, lepton_pt, lepton_e, lepton_q = [], [], [],[], [], [], [], [], []
 nJets_ii = []
 
-b3, l3, b4, l4 = [], [], [], []
+b2, l2, b3, l3, b4, l4 = [], [], [], [], [], []
 b1, q11, q12, b2, q21, q22 = [], [], [], [], [], []
 kk = 0
 
@@ -323,7 +94,6 @@ number_matched_vector = []
 met_met = []
 met_sin_phi = []
 met_cos_phi = []
-# met_significance = []
 
 leptonic_W_d1_pdg_id= []
 leptonic_W_d2_pdg_id= []
@@ -349,6 +119,9 @@ t4_nu_sin_phi = []
 
 leptonic_W_d2_pdg_id= []
 print("Starting the prepocessing")
+
+
+
 for event in tree:        
     if len(event.parton_top_isHadronic) != 4:
         continue
@@ -364,18 +137,8 @@ for event in tree:
     jet_maski, jet_etai, jet_etagi, jet_mtagi, jet_btagi, jet_phii, jet_pti, jet_ei, jet_qi = [], [], [],[], [], [], [], [], []
     nJets_ii.append(len(event.jet_eta))
         
-    # 2LSS: 
-    # q11
-    # q12
-    # q21
-    # q22
-    # b1
-    # b2
-    # b3
-    # b4
-    # l3
-    # l4
-    # 10 objects
+    # 2LSS: q11, q12, q21, q22, b1, b2, b3, b4, l3, l4
+    
     
     # iter_jet_phi = event.fm_phys_phi
     # iter_jet_eta = event.fm_phys_eta 
@@ -388,12 +151,7 @@ for event in tree:
     iter_jet_pt =event.jet_pt_NOSYS
     iter_jet_e = event.jet_e_NOSYS
     iter_jet_btag = event.jet_GN2v01_FixedCutBEff_85_select
-
-
     
-    
-        
-    # exit()
     maxjets = 16
     for i in range(event.nElectrons):
         lepton_etai.append(event.el_eta[i])
@@ -461,6 +219,13 @@ for event in tree:
     
     
     
+    
+    # After we obtain all the objects, we can perform truth matching when the sample is indeed four top. Otherwise we can just continue.
+    
+    if not (addTruthInformation):
+        continue
+
+    
     b_recoj_index  = event.b_recoj_index
     wd1_recoj_index = event.wd1_recoj_index
     wd2_recoj_index = event.wd2_recoj_index
@@ -470,70 +235,13 @@ for event in tree:
     wd2_el_index =event.wd2_el_index
     wd2_mu_index = event.wd2_mu_index
 
-
+    all_objects_eta = np.concatenate([np.asarray(jet_etai), np.asarray(lepton_etai)])
+    all_objects_phi = np.concatenate([np.asarray(jet_phii), np.asarray(lepton_phii)])    
 
     if do_fuzzy_matching:
-        number_matched = 0
-        # b_recoj_index  = [-1,-1,-1,-1]
-        wd1_recoj_index = [-1,-1,-1,-1]
-        wd2_recoj_index = [-1,-1,-1,-1]
-        wd2_recoj_index = [-1,-1,-1,-1]
-        # wd1_el_index = [-1,-1,-1,-1]
-        # wd1_mu_index = [-1,-1,-1,-1]
-        # wd2_el_index = [-1,-1,-1,-1]
-        # wd2_mu_index = [-1,-1,-1,-1]
-        all_objects_eta = np.concatenate([np.asarray(jet_etai), np.asarray(lepton_etai)])
-        all_objects_phi = np.concatenate([np.asarray(jet_phii), np.asarray(lepton_phii)])
-        minimum_type = "Jet"
-        index_jet = 0
-        minimum_index =  0
-        # for iter_fm in range(len(all_objects_eta)):
-        #     minimum_deltaR = 10
-        #     phys_eta = all_objects_eta[iter_fm]
-        #     phys_phi = all_objects_phi[iter_fm]
-        #     if (phys_eta==0):
-        #         continue
-        #     # Jets
-        #     for iter_jet in range(len(fm_phys_eta)):
-        #         delta_r_jet = delta_r(phys_eta, phys_phi, fm_phys_eta[iter_jet],fm_phys_phi[iter_jet])
-        #         if (delta_r_jet<minimum_deltaR ):
-        #             minimum_deltaR = delta_r_jet
-        #             minimum_index = iter_jet
-        #             if (iter_fm >15 ):
-        #                 minimum_type = "Lepton"
-                        
-        #     if(minimum_deltaR <= 0.5):
-        #         # print(minimum_type, " ", iter_fm ,  " ", minimum_index,  " minimum_deltaR with : ", minimum_deltaR, " with ID: ", event.fm_phys_pdgid[minimum_index])
-        #         number_matched = number_matched+1
-    
-        # # for iter_top in range(4):
-        # #     # print("TOP ", iter_top, event.parton_top_isHadronic[iter_top])
-        # #     for iter_jet in range(len(fm_phys_eta)):
-        # #         # print(event.fm_phys_index[iter_jet])
-        # #         if (iter_top in event.fm_phys_index[iter_jet]):
-        #             # print(event.fm_phys_pdgid[iter_jet])
-                
-                        
-    
-        # print("len(fm_phys_eta)" , len(fm_phys_eta))
-        # print("event.nElectrons + event.nMuons + event.nJets" , event.nElectrons + event.nMuons + event.nJets)
-
-        # print(number_matched)
-        # print(wd2_el_index)
-        # print(wd1_el_index)
-        # print(wd2_mu_index)
-        # print(wd1_mu_index)
-        # print(event.parton_b_eta)
-        # print(event.parton_b_phi)
-        # all_objects_eta = np.concatenate([np.asarray(jet_etai), np.asarray(lepton_etai)])
-        # all_objects_phi = np.concatenate([np.asarray(jet_phii), np.asarray(lepton_phii)])
-        
-        
         iter_objects_phi = all_objects_phi
         iter_objects_eta = all_objects_eta
     
-        # iter_objects_phi = fm_phys_phi
-        # iter_objects_eta = fm_phys_eta    
         b_recoj_index_new = [-1,-1,-1,-1]
         Wd1_recoj_index_new = [-1,-1,-1,-1]
         Wd2_recoj_index_new = [-1,-1,-1,-1]
@@ -541,8 +249,6 @@ for event in tree:
         b_recoj_deltaR_new = [-1,-1,-1,-1]
         Wd1_recoj_deltaR_new = [-1,-1,-1,-1]
         Wd2_recoj_deltaR_new = [-1,-1,-1,-1]
-        # iter_objects_eta = np.concatenate([np.asarray(jet_etai)])
-        # iter_objects_phi = np.concatenate([np.asarray(jet_phii)])
         
         wd1_el_index_new = [-1,-1,-1,-1]
         wd2_el_index_new = [-1,-1,-1,-1]
@@ -568,10 +274,10 @@ for event in tree:
             label="b"
         )
 
-
-        if 16 in b_recoj_index_new:
+        if maxjets in b_recoj_index_new:
             print(b_recoj_index_new)
             exit()
+            
         # Match W decay 1
         match_partons_to_jets(
             event.parton_Wdecay1_eta,
@@ -611,14 +317,12 @@ for event in tree:
             label="Wd2"
         )
         
-        
-        
-        
-        # print("before fixes")
-        # print(b_recoj_index_new)
-        # print(Wd1_recoj_index_new)
-        # print(Wd2_recoj_index_new)
-        
+        if doDEBUG:
+                print("before fixes")
+                print(b_recoj_index_new)
+                print(Wd1_recoj_index_new)
+                print(Wd2_recoj_index_new)
+            
         # Rid of the cases where there are multiple matches
         resolve_internal_duplicates(Wd1_recoj_index_new, Wd1_recoj_deltaR_new)
         resolve_internal_duplicates(Wd2_recoj_index_new, Wd2_recoj_deltaR_new)
@@ -626,11 +330,13 @@ for event in tree:
         resolve_conflict(b_recoj_index_new, b_recoj_deltaR_new, Wd1_recoj_index_new, Wd1_recoj_deltaR_new)
         resolve_conflict(b_recoj_index_new, b_recoj_deltaR_new, Wd2_recoj_index_new, Wd2_recoj_deltaR_new)
         resolve_conflict(Wd1_recoj_index_new, Wd1_recoj_deltaR_new, Wd2_recoj_index_new, Wd2_recoj_deltaR_new)
-           
-        # print("post fixes")
-        # print(b_recoj_index_new, " -> ", event.b_recoj_index)
-        # print(Wd1_recoj_index_new," -> ", event.wd1_recoj_index)
-        # print(Wd2_recoj_index_new," -> ", event.wd2_recoj_index)
+        
+        
+        if doDEBUG:
+            print("post fixes")
+            print(b_recoj_index_new, " -> ", event.b_recoj_index)
+            print(Wd1_recoj_index_new," -> ", event.wd1_recoj_index)
+            print(Wd2_recoj_index_new," -> ", event.wd2_recoj_index)
         
         # print(event.wd1_el_index)
         # print(event.wd1_mu_index)
@@ -645,8 +351,6 @@ for event in tree:
         
     
         ## Time to get the leptons:
-        
-        
         b_count = 4 - b_recoj_index_new.count(-1)
         Wd1_count = 4-  Wd1_recoj_index_new.count(-1)
         Wd2_count = 4 - Wd2_recoj_index_new.count(-1)
@@ -672,18 +376,18 @@ for event in tree:
     # print(max(wd2_el_index_new))
     # print(max(wd1_mu_index_new))
     # print(max(wd2_mu_index_new))
-    if(3 in wd1_el_index_new):
-        print("found 3, exit")
-        exit()
-    if(3 in wd2_el_index_new):
-        print("found 3, exit")
-        exit()
-    if(3 in wd1_mu_index_new):
-        print("found 3, exit")
-        exit()
-    if(3 in wd2_mu_index_new):
-        print("found 3, exit")
-        exit()
+    # if(3 in wd1_el_index_new):
+    #     print("found 3, exit")
+    #     exit()
+    # if(3 in wd2_el_index_new):
+    #     print("found 3, exit")
+    #     exit()
+    # if(3 in wd1_mu_index_new):
+    #     print("found 3, exit")
+    #     exit()
+    # if(3 in wd2_mu_index_new):
+    #     print("found 3, exit")
+    #     exit()
     if doDeltaRMatching: 
         iter_b_recoj_index = b_recoj_index_new
         iter_wd1_recoj_index = Wd1_recoj_index_new
@@ -693,116 +397,276 @@ for event in tree:
         iter_wd1_mu_index = wd1_mu_index_new
         iter_wd2_mu_index = wd2_mu_index_new
         
+        
+    # This is where be match the event to the four top geometry.
+#################################### 2LSS ######################################## 
+    if do2LSS:
+        for t in range(4):
+            if event.parton_top_isHadronic[t] == 1:
+                if first_ht == 0:
+                    b1.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    q11.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
+                    q12.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
 
-    for t in range(4):
-        # print(event.b_recoj_index)
-        # print( event.parton_top_isHadronic[t])
-        if event.parton_top_isHadronic[t] == 1:
-            if first_ht == 0:
-                b1.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
-                q11.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
-                q12.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
-
-                #check for jet matching errors
-                if iter_b_recoj_index[t] == iter_wd1_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
-                    b1[-1] = -1
-                    q11[-1] = -1
-                if iter_wd1_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
-                    q11[-1] = -1
-                    q12[-1] = -1
-                if iter_b_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd2_recoj_index[t] != -1:
-                    b1[-1] = -1
-                    q12[-1] = -1
-                first_ht = 1
+                    #check for jet matching errors
+                    if iter_b_recoj_index[t] == iter_wd1_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        b1[-1] = -1
+                        q11[-1] = -1
+                    if iter_wd1_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        q11[-1] = -1
+                        q12[-1] = -1
+                    if iter_b_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd2_recoj_index[t] != -1:
+                        b1[-1] = -1
+                        q12[-1] = -1
+                    first_ht = 1
+                else:
+                    b2.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    q21.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
+                    q22.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
+                    
+                    # check for matching errors
+                    if iter_b_recoj_index[t] == iter_wd1_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        b2[-1] = -1
+                        q21[-1] = -1
+                    if iter_wd1_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        q21[-1] = -1
+                        q22[-1] = -1
+                    if iter_b_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd2_recoj_index[t] != -1:
+                        b2[-1] = -1
+                        q22[-1] = -1
+                        
             else:
-                b2.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
-                q21.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
-                q22.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
+                leptonic_W_d1_pdg_id.append(event.parton_Wdecay1_pdgId[t])
+                leptonic_W_d2_pdg_id.append(event.parton_Wdecay2_pdgId[t])
+                if first_lt == 0:
+                    b3.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    ## Find the neutrino
+                    if (np.abs(event.parton_Wdecay1_pdgId[t]) == 12 or np.abs(event.parton_Wdecay1_pdgId[t]) == 14): 
+                        W_leptonic_nu3_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_nu3_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_nu3_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_nu3_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        W_leptonic_lep3_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_lep3_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_lep3_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_lep3_truth_phi.append(event.parton_Wdecay2_phi[t])
+                    else:
+                        W_leptonic_nu3_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_nu3_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_nu3_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_nu3_truth_phi.append(event.parton_Wdecay2_phi[t])
+                        W_leptonic_lep3_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_lep3_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_lep3_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_lep3_truth_phi.append(event.parton_Wdecay1_phi[t])
+                    if iter_wd1_el_index[t] != -1:
+                        l3.append(iter_wd1_el_index[t])
+                    elif iter_wd2_el_index[t] != -1:
+                        l3.append(iter_wd2_el_index[t])
+                    elif iter_wd1_mu_index[t] != -1:
+                        l3.append(iter_wd1_mu_index[t] )
+                    elif iter_wd2_mu_index[t] != -1:
+                        l3.append(iter_wd2_mu_index[t] )
+                    else:
+                        l3.append(-1)
+                    first_lt = 1
+                else:
+                    b4.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    if (np.abs(event.parton_Wdecay1_pdgId[t]) == 12 or np.abs(event.parton_Wdecay1_pdgId[t]) == 14): 
+                        W_leptonic_nu4_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_nu4_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_nu4_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_nu4_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        W_leptonic_lep4_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_lep4_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_lep4_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_lep4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                    else:
+                        W_leptonic_nu4_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_nu4_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_nu4_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_nu4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                        W_leptonic_lep4_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_lep4_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_lep4_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_lep4_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        
+                    if iter_wd1_el_index[t] != -1:
+                        l4.append(iter_wd1_el_index[t])
+                    elif iter_wd2_el_index[t] != -1:
+                        l4.append(iter_wd2_el_index[t])
+                    elif iter_wd1_mu_index[t] != -1:
+                        l4.append(iter_wd1_mu_index[t])# + event.nElectrons)
+                    elif iter_wd2_mu_index[t] != -1:
+                        l4.append(iter_wd2_mu_index[t]) #+ event.nElectrons)
+                    else:
+                        l4.append(-1)
+#################################### 2LSS ######################################## 
+
+#################################### 3L ######################################## 
+
+        for t in range(4):
+            if event.parton_top_isHadronic[t] == 1:
+                # Hadronic Top
+                b_Hadronic.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                q1_Hadronic.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
+                q2_Hadronic.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
+            else:
+                # Leptonic Top
+                b_Leptonic.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                l_leptonic.append()
                 
-                # check for matching errors
-                if iter_b_recoj_index[t] == iter_wd1_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
-                    b2[-1] = -1
-                    q21[-1] = -1
-                if iter_wd1_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
-                    q21[-1] = -1
-                    q22[-1] = -1
-                if iter_b_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd2_recoj_index[t] != -1:
-                    b2[-1] = -1
-                    q22[-1] = -1
-                    
-        else:
-            leptonic_W_d1_pdg_id.append(event.parton_Wdecay1_pdgId[t])
-            leptonic_W_d2_pdg_id.append(event.parton_Wdecay2_pdgId[t])
-            if first_lt == 0:
-                b3.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
-                ## Find the neutrino
                 if (np.abs(event.parton_Wdecay1_pdgId[t]) == 12 or np.abs(event.parton_Wdecay1_pdgId[t]) == 14): 
-                    W_leptonic_nu3_truth_m.append(event.parton_Wdecay1_m[t])
-                    W_leptonic_nu3_truth_pt.append(event.parton_Wdecay1_pt[t])
-                    W_leptonic_nu3_truth_eta.append(event.parton_Wdecay1_eta[t])
-                    W_leptonic_nu3_truth_phi.append(event.parton_Wdecay1_phi[t])
-                    W_leptonic_lep3_truth_m.append(event.parton_Wdecay2_m[t])
-                    W_leptonic_lep3_truth_pt.append(event.parton_Wdecay2_pt[t])
-                    W_leptonic_lep3_truth_eta.append(event.parton_Wdecay2_eta[t])
-                    W_leptonic_lep3_truth_phi.append(event.parton_Wdecay2_phi[t])
+                        W_leptonic_nu4_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_nu4_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_nu4_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_nu4_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        W_leptonic_lep4_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_lep4_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_lep4_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_lep4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                    else:    
+                        W_leptonic_nu4_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_nu4_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_nu4_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_nu4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                        W_leptonic_lep4_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_lep4_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_lep4_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_lep4_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        
+                        
+                        
+################################### 2LSS ######################################## 
+    if do2LSS:
+        for t in range(4):
+            if event.parton_top_isHadronic[t] == 1:
+                if first_ht == 0:
+                    b1.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    q11.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
+                    q12.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
+
+                    #check for jet matching errors
+                    if iter_b_recoj_index[t] == iter_wd1_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        b1[-1] = -1
+                        q11[-1] = -1
+                    if iter_wd1_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        q11[-1] = -1
+                        q12[-1] = -1
+                    if iter_b_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd2_recoj_index[t] != -1:
+                        b1[-1] = -1
+                        q12[-1] = -1
+                    first_ht = 1
                 else:
-                    W_leptonic_nu3_truth_m.append(event.parton_Wdecay2_m[t])
-                    W_leptonic_nu3_truth_pt.append(event.parton_Wdecay2_pt[t])
-                    W_leptonic_nu3_truth_eta.append(event.parton_Wdecay2_eta[t])
-                    W_leptonic_nu3_truth_phi.append(event.parton_Wdecay2_phi[t])
-                    W_leptonic_lep3_truth_m.append(event.parton_Wdecay1_m[t])
-                    W_leptonic_lep3_truth_pt.append(event.parton_Wdecay1_pt[t])
-                    W_leptonic_lep3_truth_eta.append(event.parton_Wdecay1_eta[t])
-                    W_leptonic_lep3_truth_phi.append(event.parton_Wdecay1_phi[t])
-                if iter_wd1_el_index[t] != -1:
-                    l3.append(iter_wd1_el_index[t])
-                elif iter_wd2_el_index[t] != -1:
-                    l3.append(iter_wd2_el_index[t])
-                elif iter_wd1_mu_index[t] != -1:
-                    l3.append(iter_wd1_mu_index[t] )
-                elif iter_wd2_mu_index[t] != -1:
-                    l3.append(iter_wd2_mu_index[t] )
-                else:
-                    l3.append(-1)
-                first_lt = 1
+                    b2.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    q21.append(iter_wd1_recoj_index[t] if iter_wd1_recoj_index[t] != -1 else -1)
+                    q22.append(iter_wd2_recoj_index[t] if iter_wd2_recoj_index[t] != -1 else -1)
+                    
+                    # check for matching errors
+                    if iter_b_recoj_index[t] == iter_wd1_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        b2[-1] = -1
+                        q21[-1] = -1
+                    if iter_wd1_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd1_recoj_index[t] != -1:
+                        q21[-1] = -1
+                        q22[-1] = -1
+                    if iter_b_recoj_index[t] == iter_wd2_recoj_index[t] and iter_wd2_recoj_index[t] != -1:
+                        b2[-1] = -1
+                        q22[-1] = -1
+                        
             else:
-                b4.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
-                if (np.abs(event.parton_Wdecay1_pdgId[t]) == 12 or np.abs(event.parton_Wdecay1_pdgId[t]) == 14): 
-                    W_leptonic_nu4_truth_m.append(event.parton_Wdecay1_m[t])
-                    W_leptonic_nu4_truth_pt.append(event.parton_Wdecay1_pt[t])
-                    W_leptonic_nu4_truth_eta.append(event.parton_Wdecay1_eta[t])
-                    W_leptonic_nu4_truth_phi.append(event.parton_Wdecay1_phi[t])
-                    W_leptonic_lep4_truth_m.append(event.parton_Wdecay2_m[t])
-                    W_leptonic_lep4_truth_pt.append(event.parton_Wdecay2_pt[t])
-                    W_leptonic_lep4_truth_eta.append(event.parton_Wdecay2_eta[t])
-                    W_leptonic_lep4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                leptonic_W_d1_pdg_id.append(event.parton_Wdecay1_pdgId[t])
+                leptonic_W_d2_pdg_id.append(event.parton_Wdecay2_pdgId[t])
+                if first_lt == 0:
+                    b3.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    ## Find the neutrino
+                    if (np.abs(event.parton_Wdecay1_pdgId[t]) == 12 or np.abs(event.parton_Wdecay1_pdgId[t]) == 14): 
+                        W_leptonic_nu3_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_nu3_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_nu3_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_nu3_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        W_leptonic_lep3_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_lep3_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_lep3_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_lep3_truth_phi.append(event.parton_Wdecay2_phi[t])
+                    else:
+                        W_leptonic_nu3_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_nu3_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_nu3_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_nu3_truth_phi.append(event.parton_Wdecay2_phi[t])
+                        W_leptonic_lep3_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_lep3_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_lep3_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_lep3_truth_phi.append(event.parton_Wdecay1_phi[t])
+                    if iter_wd1_el_index[t] != -1:
+                        l3.append(iter_wd1_el_index[t])
+                    elif iter_wd2_el_index[t] != -1:
+                        l3.append(iter_wd2_el_index[t])
+                    elif iter_wd1_mu_index[t] != -1:
+                        l3.append(iter_wd1_mu_index[t] )
+                    elif iter_wd2_mu_index[t] != -1:
+                        l3.append(iter_wd2_mu_index[t] )
+                    else:
+                        l3.append(-1)
+                    first_lt = 1
                 else:
-                    W_leptonic_nu4_truth_m.append(event.parton_Wdecay2_m[t])
-                    W_leptonic_nu4_truth_pt.append(event.parton_Wdecay2_pt[t])
-                    W_leptonic_nu4_truth_eta.append(event.parton_Wdecay2_eta[t])
-                    W_leptonic_nu4_truth_phi.append(event.parton_Wdecay2_phi[t])
-                    W_leptonic_lep4_truth_m.append(event.parton_Wdecay1_m[t])
-                    W_leptonic_lep4_truth_pt.append(event.parton_Wdecay1_pt[t])
-                    W_leptonic_lep4_truth_eta.append(event.parton_Wdecay1_eta[t])
-                    W_leptonic_lep4_truth_phi.append(event.parton_Wdecay1_phi[t])
-                    
-                if iter_wd1_el_index[t] != -1:
-                    l4.append(iter_wd1_el_index[t])
-                elif iter_wd2_el_index[t] != -1:
-                    l4.append(iter_wd2_el_index[t])
-                elif iter_wd1_mu_index[t] != -1:
-                    l4.append(iter_wd1_mu_index[t])# + event.nElectrons)
-                elif iter_wd2_mu_index[t] != -1:
-                    l4.append(iter_wd2_mu_index[t]) #+ event.nElectrons)
-                else:
-                    l4.append(-1)
-                    
-                    
-                    
-                    
+                    b4.append(iter_b_recoj_index[t] if iter_b_recoj_index[t] != -1 else -1)
+                    if (np.abs(event.parton_Wdecay1_pdgId[t]) == 12 or np.abs(event.parton_Wdecay1_pdgId[t]) == 14): 
+                        W_leptonic_nu4_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_nu4_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_nu4_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_nu4_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        W_leptonic_lep4_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_lep4_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_lep4_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_lep4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                    else:    
+                        W_leptonic_nu4_truth_m.append(event.parton_Wdecay2_m[t])
+                        W_leptonic_nu4_truth_pt.append(event.parton_Wdecay2_pt[t])
+                        W_leptonic_nu4_truth_eta.append(event.parton_Wdecay2_eta[t])
+                        W_leptonic_nu4_truth_phi.append(event.parton_Wdecay2_phi[t])
+                        W_leptonic_lep4_truth_m.append(event.parton_Wdecay1_m[t])
+                        W_leptonic_lep4_truth_pt.append(event.parton_Wdecay1_pt[t])
+                        W_leptonic_lep4_truth_eta.append(event.parton_Wdecay1_eta[t])
+                        W_leptonic_lep4_truth_phi.append(event.parton_Wdecay1_phi[t])
+                        
+                    if iter_wd1_el_index[t] != -1:
+                        l4.append(iter_wd1_el_index[t])
+                    elif iter_wd2_el_index[t] != -1:
+                        l4.append(iter_wd2_el_index[t])
+                    elif iter_wd1_mu_index[t] != -1:
+                        l4.append(iter_wd1_mu_index[t])# + event.nElectrons)
+                    elif iter_wd2_mu_index[t] != -1:
+                        l4.append(iter_wd2_mu_index[t]) #+ event.nElectrons)
+                    else:
+                        l4.append(-1)
+#################################### 3L ######################################## 
 
 
+hf = h5py.File(name, 'w')
+inputs = hf.create_group('INPUTS')
 
+jet = inputs.create_group('Jet')
+jet_mask_data = jet.create_dataset('MASK', data=jet_mask)
+jet_eta_data = jet.create_dataset('eta', data=jet_eta)
+jet_btag_data = jet.create_dataset('btag', data=jet_btag)
+jet_phi_data = jet.create_dataset('phi', data=jet_phi)
+jet_pt_data = jet.create_dataset('pt', data=jet_pt)
+jet_e_data = jet.create_dataset('e', data=jet_e)
+
+lepton = inputs.create_group('Lepton')
+lepton_mask_data = lepton.create_dataset('MASK', data=lepton_mask)
+lepton_eta_data = lepton.create_dataset('eta', data=lepton_eta)
+lepton_btag_data = lepton.create_dataset('btag', data=lepton_btag)
+lepton_phi_data = lepton.create_dataset('phi', data=lepton_phi)
+lepton_pt_data = lepton.create_dataset('pt', data=lepton_pt)
+lepton_e_data = lepton.create_dataset('e', data=lepton_e)
+lepton_q_data = lepton.create_dataset('q', data=lepton_q)
+lepton_etag_data = lepton.create_dataset('etag', data=lepton_etag)
+lepton_mtag_data = lepton.create_dataset('mtag', data=lepton_mtag)
+
+
+if not (addTruthInformation):
+    exit()
 
 
 print(maximum_deltaR_bparton)  
@@ -851,7 +715,6 @@ plt.figure()
 plt.hist(q12, bins=50, range=(-2, 10),  histtype='step', color='blue', label="b1") 
 plt.savefig(plotDirectory +"/q12.pdf") #Save the plot
 #####################################################################################################################
-
 
 assigned_b_jet_vect = []
 assigned_w_had_vect = []
@@ -1012,133 +875,152 @@ plt.savefig(plotDirectory +"/correctly_assigned_objects.pdf") #Save the plot
 
 
 
-############### PLOT THE MASS OF THE TOP AND W AND M_LB FOR THE LEPTONIC TOP ###################
-
-
-
-############# SAVE EVERYTHING TO SPANNET ######################################
-
-t3_nu_eta = W_leptonic_nu3_truth_eta
-t3_nu_cos_phi = np.cos(W_leptonic_nu3_truth_phi)
-t3_nu_sin_phi = np.sin(W_leptonic_nu3_truth_phi)
-
-t4_nu_eta = W_leptonic_nu4_truth_eta
-t4_nu_cos_phi = np.cos(W_leptonic_nu4_truth_phi)
-t4_nu_sin_phi =  np.sin(W_leptonic_nu4_truth_phi)
-
-b1_data = t1.create_dataset('b', data=b1)
-q11_data = t1.create_dataset('q1', data=q11)
-q12_data = t1.create_dataset('q2', data=q12)
-b2_data = t2.create_dataset('b', data=b2)
-q21_data = t2.create_dataset('q1', data=q21)
-q22_data = t2.create_dataset('q2', data=q22)
-b3_data = t3.create_dataset('b', data=b3)
-l3_data = t3.create_dataset('l', data=l3)
-b4_data = t4.create_dataset('b', data=b4)
-l4_data = t4.create_dataset('l', data=l4)
-
-
-b1_data_og = t1_og.create_dataset('b', data=b1)
-q11_data_og = t1_og.create_dataset('q1', data=q11)
-q12_data_og = t1_og.create_dataset('q2', data=q12)
-b2_data_og = t2_og.create_dataset('b', data=b2)
-q21_data_og = t2_og.create_dataset('q1', data=q21)
-q22_data_og = t2_og.create_dataset('q2', data=q22)
-b3_data_og = t3_og.create_dataset('b', data=b3)
-l3_data_og = t3_og.create_dataset('l', data=l3)
-b4_data_og = t4_og.create_dataset('b', data=b4)
-l4_data_og = t4_og.create_dataset('l', data=l4)
-
-
-event = regressions.create_group('EVENT')
-t3_nu3_eta_data = event.create_dataset('t3_neutrino_eta', data=t3_nu_eta)
-t3_nu_cos_phi_data = event.create_dataset('t3_neutrino_cos_phi', data=t3_nu_cos_phi)
-t3_nu_sin_phi_data = event.create_dataset('t3_neutrino_sin_phi', data=t3_nu_sin_phi)
-
-t4_nu_eta_data = event.create_dataset('t4_neutrino_eta', data=t4_nu_eta)
-t4_nu_cos_phi_data = event.create_dataset('t4_neutrino_cos_phi', data=t4_nu_cos_phi)
-t4_nu_sin_phi_data = event.create_dataset('t4_neutrino_sin_phi', data=t4_nu_sin_phi)
-
-met = inputs.create_group('Met')
-met_met_data = met.create_dataset('met_met', data=met_met)
-met_cos_phi_data = met.create_dataset('met_cos_phi', data=met_cos_phi)
-met_sin_phi_data = met.create_dataset('met_sin_phi', data=met_sin_phi)
-
-
-jet = inputs.create_group('Jet')
-jet_mask_data = jet.create_dataset('MASK', data=jet_mask)
-jet_eta_data = jet.create_dataset('eta', data=jet_eta)
-jet_btag_data = jet.create_dataset('btag', data=jet_btag)
-jet_phi_data = jet.create_dataset('phi', data=jet_phi)
-jet_pt_data = jet.create_dataset('pt', data=jet_pt)
-jet_e_data = jet.create_dataset('e', data=jet_e)
-
-lepton = inputs.create_group('Lepton')
-lepton_mask_data = lepton.create_dataset('MASK', data=lepton_mask)
-lepton_eta_data = lepton.create_dataset('eta', data=lepton_eta)
-lepton_btag_data = lepton.create_dataset('btag', data=lepton_btag)
-lepton_phi_data = lepton.create_dataset('phi', data=lepton_phi)
-lepton_pt_data = lepton.create_dataset('pt', data=lepton_pt)
-lepton_e_data = lepton.create_dataset('e', data=lepton_e)
-lepton_q_data = lepton.create_dataset('q', data=lepton_q)
-lepton_etag_data = lepton.create_dataset('etag', data=lepton_etag)
-lepton_mtag_data = lepton.create_dataset('mtag', data=lepton_mtag)
-
-Event = inputs.create_group('Event')
-Event_assigned_objects_data = Event.create_dataset('assigned_objects', data=assigned_objects)
-Event_assigned_jets_data = Event.create_dataset('assigned_jets', data=assigned_jet_vect)
-Event_assigned_bjets_data = Event.create_dataset('assigned_bjets', data=assigned_b_jet_vect)
-Event_assigned_tops_data = Event.create_dataset('assigned_tops', data=assigned_t_total_vect)
-Event_assigned_q_jets_data = Event.create_dataset('assigned_q_jets', data=assigned_q_jet_vect)
-Event_assigned_had_tops_data = Event.create_dataset('assigned_had_tops', data=assigned_t_had_vect)
-Event_njets_data = Event.create_dataset('nJets', data=nJets_ii)
-
-
-
-print(name)
-
-with h5py.File(name, 'r') as f:
-    data = f['TARGETS']['t3']['l'][:]  # Load the entire dataset into memory
-    print(max(data))
-    print(min(data))
-    print(data)       # Print the contents
-
-with h5py.File('/scratchdata1/groups/phoenix-hpc-coepp/atlas/mjgreen/four-top/data/tttt_2LSS_wLep/train.h5', 'r') as f:
-    data = f['TARGETS']['t3']['l'][:]  # Load the entire dataset into memory
-    print(max(data))
-    print(min(data))
-    print(data)       # Print the contents
+############### FIND THE REGRESSIONS ###################
     
-    
-# exit()
-
 top_masses = []
 top_njets = []
+t1_tMass = []
+t2_tMass = []
+t1_wMass = []
+t2_wMass = []
+t1_njet = []
+t2_njet = []
+w1_njet = []
+w2_njet =[]
+t3_mbl = []
+t4_mbl = []
+t3_njet = []
+t4_njet = []
 bins = np.linspace(0, 300000, 100)  # 100 bins between 0 and 300000
 
-# 
-for i in range(len(q11_data)):
+for i in range(len(q11)):
+    
+    t1_quarks = []
+    t2_quarks = []
+    t3_quarks = []
+    t4_quarks = []
+    w1_quarks = []
+    w2_quarks = []
+    
     quarks = []
-    if (q11_data[i] != -1 and  q11_data[i] <maxjets):
-        quark1 = (jet_pt_data[i][q11_data[i]], jet_eta_data[i][q11_data[i]], jet_phi_data[i][q11_data[i]], jet_e_data[i][q11_data[i]])  # (pt, eta, phi, E)
-        quarks.append(quark1)
+    if (q11[i] != -1 and  q11[i] <maxjets):
+        quark = (jet_pt[i][q11[i]], jet_eta[i][q11[i]], jet_phi[i][q11[i]], jet_e[i][q11[i]])  # (pt, eta, phi, E)
+        w1_quarks.append(quark)
+        t1_quarks.append(quark)
         
-    if(q12_data[i] != -1 and  q12_data[i] <maxjets):
-        quark2 = (jet_pt_data[i][q12_data[i]], jet_eta_data[i][q12_data[i]], jet_phi_data[i][q12_data[i]], jet_e_data[i][q12_data[i]])  # (pt, eta, phi, E)
-        quarks.append(quark2)
+    if(q12[i] != -1 and  q12[i] <maxjets):
+        quark = (jet_pt[i][q12[i]], jet_eta[i][q12[i]], jet_phi[i][q12[i]], jet_e[i][q12[i]])  # (pt, eta, phi, E)
+        w1_quarks.append(quark)
+        t1_quarks.append(quark)     
+           
+    if(b1[i] != -1 and  b1[i] <maxjets):
+        quark = (jet_pt[i][b1[i]], jet_eta[i][b1[i]], jet_phi[i][b1[i]], jet_e[i][b1[i]])  # (pt, eta, phi, E)
+        t1_quarks.append(quark)         
+
+    if (q21[i] != -1 and  q21[i] <maxjets):
+        quark = (jet_pt[i][q21[i]], jet_eta[i][q21[i]], jet_phi[i][q21[i]], jet_e[i][q21[i]])  # (pt, eta, phi, E)
+        w2_quarks.append(quark)
+        t2_quarks.append(quark)
         
-    if(b1_data[i] != -1 and  b1_data[i] <maxjets):
-        quark3 = (jet_pt_data[i][b1_data[i]], jet_eta_data[i][b1_data[i]], jet_phi_data[i][b1_data[i]], jet_e_data[i][b1_data[i]])  # (pt, eta, phi, E)
-        quarks.append(quark3)
-    # print("LEN")
-    # print(len(quarks))
-    if len(quarks) >= 1:
-        top_mass = calculate_invariant_mass(*quarks)
-        top_masses.append(top_mass)
-        top_njets.append(len(quarks))
+    if(q22[i] != -1 and  q22[i] <maxjets):
+        quark = (jet_pt[i][q22[i]], jet_eta[i][q22[i]], jet_phi[i][q22[i]], jet_e[i][q22[i]])  # (pt, eta, phi, E)
+        w2_quarks.append(quark)
+        t2_quarks.append(quark)     
+           
+    if(b2[i] != -1 and  b2[i] <maxjets):
+        quark = (jet_pt[i][b2[i]], jet_eta[i][b2[i]], jet_phi[i][b2[i]], jet_e[i][b2[i]])  # (pt, eta, phi, E)
+        t2_quarks.append(quark)   
         
+    if(b3[i] != -1 and  b3[i] <maxjets):
+        quark = (jet_pt[i][b3[i]], jet_eta[i][b3[i]], jet_phi[i][b3[i]], jet_e[i][b3[i]])  # (pt, eta, phi, E)
+        t3_quarks.append(quark)        
+    if(l3[i] != -1 ):
+        lepton = (lepton_pt[i][l3[i]], lepton_eta[i][l3[i]], lepton_phi[i][l3[i]], lepton_e[i][l3[i]])  # (pt, eta, phi, E)
+        t3_quarks.append(lepton)  
+              
+    if(b4[i] != -1 and  b4[i] <maxjets):
+        quark = (jet_pt[i][b4[i]], jet_eta[i][b4[i]], jet_phi[i][b4[i]], jet_e[i][b4[i]])  # (pt, eta, phi, E)
+        t4_quarks.append(quark)        
+    if(l4[i] != -1 ):
+        lepton = (lepton_pt[i][l4[i]], lepton_eta[i][l4[i]], lepton_phi[i][l4[i]], lepton_e[i][l4[i]])  # (pt, eta, phi, E)
+        t4_quarks.append(lepton)       
+    
+    
+    
+    # t1 mass:
+    if len(t1_quarks) >= 1:
+        t1_mass = calculate_invariant_mass(*t1_quarks)
+        t1_tMass.append(t1_mass)
+        t1_njet.append(len(t1_quarks))
+    else:
+        t1_tMass.append(-1)
+        t1_njet.append(0)
+
+
+    # w1 mass:
+    if len(w1_quarks) >= 1:
+        w1_mass = calculate_invariant_mass(*w1_quarks)
+        t1_wMass.append(w1_mass)
+        w1_njet.append(len(w1_quarks))
+    else:
+        t1_wMass.append(-1)
+        w1_njet.append(0)
         
+    # t2 mass
+    if len(t2_quarks) >= 1:
+        t2_mass = calculate_invariant_mass(*t2_quarks)
+        t2_tMass.append(t2_mass)
+        t2_njet.append(len(t2_quarks))
+    else:
+        t2_tMass.append(-1)
+        t2_njet.append(0)
+        
+    if len(w2_quarks) >= 1:
+        w2_mass = calculate_invariant_mass(*w2_quarks)
+        t2_wMass.append(w2_mass)
+        w2_njet.append(len(w2_quarks))
+    else:
+        t2_wMass.append(-1)
+        w2_njet.append(0)
+        
+    # t3 mblmass
+    if len(t3_quarks) == 2:
+        m_bl = calculate_invariant_mass(*t3_quarks)            
+        t3_mbl.append(m_bl)
+        t3_njet.append(len(t3_quarks))
+    else:
+        # t3_mbl.append(np.nan)
+        t3_mbl.append(-1)
+        t3_njet.append(0)
+        
+    if len(t4_quarks) == 2:
+        m_bl = calculate_invariant_mass(*t4_quarks)
+        t4_mbl.append(m_bl)
+        t4_njet.append(len(t4_quarks))
+    else:
+        t4_mbl.append(0)
+        t4_njet.append(0)
+        
+# print(t3_mbl[0:20])    
+# print(t3_njet[0:20])  
+# exit()   
+# Hadronic tops: 
+
+
 plt.figure(figsize=(8,5))
+t1_tMass = np.array(t1_tMass)
+t2_tMass = np.array(t2_tMass)
+t1_njet = np.array(t1_njet)
+t2_njet = np.array(t2_njet)
+w1_njet = np.array(w1_njet)
+w2_njet = np.array(w2_njet)
+t4_njet = np.array(t4_njet)
+t3_njet = np.array(t3_njet)
+t3_mbl = np.array(t3_mbl)
+t4_mbl = np.array(t4_mbl)
+
+top_masses = np.concatenate([t1_tMass, t2_tMass])
+top_njets = np.concatenate([t1_njet, t2_njet])
 
 
 top_masses = np.array(top_masses)
@@ -1166,7 +1048,7 @@ plt.xlabel("Mass [GeV]", fontsize=12)
 plt.ylabel("Counts", fontsize=12)
 plt.grid(True, alpha=0.3)
 plt.xlim(0, 300000)
-plt.ylim(0, 25000)
+plt.ylim(0, len(top_masses)/10)
 plt.tight_layout()
 plt.legend()
 plt.savefig(plotDirectory +"/"+prefix +"_top_masses.pdf") #Save the plot
@@ -1194,16 +1076,226 @@ plt.xlabel("Mass [GeV]", fontsize=12)
 plt.ylabel("Counts", fontsize=12)
 plt.grid(True, alpha=0.3)
 plt.xlim(0, 300000)
-plt.ylim(0, 25000)
+plt.ylim(0, len(top_masses)/10)
 
 plt.tight_layout()
 plt.legend()
 plt.savefig(plotDirectory +"/"+prefix +"_topMass_just_njets3.pdf") #Save the plot
-hf.close()
+
+
+# desired_length = 2 * len(q11)
+# padding_needed = desired_length - len(top_njets)
+# if padding_needed > 0:
+#     top_njets = np.pad(top_njets, (0, padding_needed), constant_values=0)
+
+
+plot_pie_chart_from_array(top_njets,plotDirectory,prefix)
+
+
+t3_nu_px,t3_nu_py, t3_nu_pz =  pt_eta_phi_to_pxyz(W_leptonic_nu3_truth_phi, W_leptonic_nu3_truth_eta, W_leptonic_nu3_truth_phi)
+t4_nu_px,t4_nu_py, t4_nu_pz =  pt_eta_phi_to_pxyz(W_leptonic_nu3_truth_phi, W_leptonic_nu3_truth_eta, W_leptonic_nu3_truth_phi)
+
+
+t3_nu_eta = W_leptonic_nu3_truth_eta
+t3_nu_cos_phi = np.cos(W_leptonic_nu3_truth_phi)
+t3_nu_sin_phi = np.sin(W_leptonic_nu3_truth_phi)
+
+t4_nu_eta = W_leptonic_nu4_truth_eta
+t4_nu_cos_phi = np.cos(W_leptonic_nu4_truth_phi)
+t4_nu_sin_phi =  np.sin(W_leptonic_nu4_truth_phi)
+
+############# SAVE EVERYTHING TO SPANNET ######################################
 
 
 
+# Set up h5 file strutcture 
+# hf = h5py.File(name, 'w')
+
+# inputs = hf.create_group('INPUTS')
+targets = hf.create_group('TARGETS')
+truth = hf.create_group('TRUTH')
+regressions = hf.create_group('REGRESSIONS')
+# particle = hf.create_group('PARTICLE')
+
+
+t1 = targets.create_group('t1')
+t2 = targets.create_group('t2')
+t3 = targets.create_group('t3')
+t4 = targets.create_group('t4')
+t1_truth = truth.create_group('t1')
+t2_truth = truth.create_group('t2')
+t3_truth = truth.create_group('t3')
+t4_truth = truth.create_group('t4')
+event_truth= truth.create_group('EVENT')
+
+t1_regression = regressions.create_group('t1')
+t2_regression = regressions.create_group('t2')
+t3_regression = regressions.create_group('t3')
+t4_regression = regressions.create_group('t4')
+
+# event_regression = hf.create_group('EVENT')
+event_regression = regressions.create_group('EVENT')
+
+b1_data = t1.create_dataset('b', data=b1)
+q11_data = t1.create_dataset('q1', data=q11)
+q12_data = t1.create_dataset('q2', data=q12)
+b2_data = t2.create_dataset('b', data=b2)
+q21_data = t2.create_dataset('q1', data=q21)
+q22_data = t2.create_dataset('q2', data=q22)
+b3_data = t3.create_dataset('b', data=b3)
+l3_data = t3.create_dataset('l', data=l3)
+b4_data = t4.create_dataset('b', data=b4)
+l4_data = t4.create_dataset('l', data=l4)
+
+
+b1_data_truth = t1_truth.create_dataset('b', data=b1)
+q11_data_truth = t1_truth.create_dataset('q1', data=q11)
+q12_data_truth = t1_truth.create_dataset('q2', data=q12)
+b2_data_truth = t2_truth.create_dataset('b', data=b2)
+q21_data_truth = t2_truth.create_dataset('q1', data=q21)
+q22_data_truth = t2_truth.create_dataset('q2', data=q22)
+b3_data_truth = t3_truth.create_dataset('b', data=b3)
+l3_data_truth = t3_truth.create_dataset('l', data=l3)
+b4_data_truth = t4_truth.create_dataset('b', data=b4)
+l4_data_truth = t4_truth.create_dataset('l', data=l4)
+
+# event = regressions.create_group('EVENT')
+# t3_nu3_eta_data = event.create_dataset('t3_neutrino_eta', data=t3_nu_eta)
+# t3_nu_cos_phi_data = event.create_dataset('t3_neutrino_cos_phi', data=t3_nu_cos_phi)
+# t3_nu_sin_phi_data = event.create_dataset('t3_neutrino_sin_phi', data=t3_nu_sin_phi)
+
+# t4_nu_eta_data = event.create_dataset('t4_neutrino_eta', data=t4_nu_eta)
+# t4_nu_cos_phi_data = event.create_dataset('t4_neutrino_cos_phi', data=t4_nu_cos_phi)
+# t4_nu_sin_phi_data = event.create_dataset('t4_neutrino_sin_phi', data=t4_nu_sin_phi)
+
+met = inputs.create_group('Met')
+met_met_data = met.create_dataset('met_met', data=met_met)
+met_cos_phi_data = met.create_dataset('met_cos_phi', data=met_cos_phi)
+met_sin_phi_data = met.create_dataset('met_sin_phi', data=met_sin_phi)
+
+# ## REGRESSIONS ##
+
+t1_PARTICLE = t1_regression.create_group('PARTICLE')
+t2_PARTICLE = t2_regression.create_group('PARTICLE')
+
+
+t1_tMass_data = t1_PARTICLE.create_dataset('tMass', data=t1_tMass)
+t2_tMass_data = t2_PARTICLE.create_dataset('tMass', data=t2_tMass)
+t1_wMass_data = t1_regression.create_dataset('wMass', data=t1_wMass)
+t2_wMass_data = t2_regression.create_dataset('wMass', data=t2_wMass)
+
+t3_mbl_data = t3_regression.create_dataset('mbl', data=t3_mbl)
+t3_nu_eta_data = t3_regression.create_dataset('nu_eta', data=t3_nu_eta)
+t3_nu_cos_phi_data = t3_regression.create_dataset('nu_cos_phi', data=t3_nu_cos_phi)
+t3_nu_sin_phi_data = t3_regression.create_dataset('nu_sin_phi', data=t3_nu_sin_phi)
+
+t4_mbl_data = t4_regression.create_dataset('mbl', data=t4_mbl)
+t4_nu_eta_data = t4_regression.create_dataset('nu_eta', data=t4_nu_eta)
+t4_nu_cos_phi_data = t4_regression.create_dataset('nu_cos_phi', data=t4_nu_cos_phi)
+t4_nu_sin_phi_data = t4_regression.create_dataset('nu_sin_phi', data=t4_nu_sin_phi)
+
+
+t3_nu_eta_data = event_regression.create_dataset('t3_nu_eta', data=t3_nu_eta)
+t3_nu_cos_phi_data = event_regression.create_dataset('t3_nu_cos_phi', data=t3_nu_cos_phi)
+t3_nu_sin_phi_data = event_regression.create_dataset('t3_nu_sin_phi', data=t3_nu_sin_phi)
+
+t4_nu_eta_data = event_regression.create_dataset('t4_nu_eta', data=t4_nu_eta)
+t4_nu_cos_phi_data = event_regression.create_dataset('t4_nu_cos_phi', data=t4_nu_cos_phi)
+t4_nu_sin_phi_data = event_regression.create_dataset('t4_nu_sin_phi', data=t4_nu_sin_phi)
+
+t3_nu_eta_data = event_truth.create_dataset('t3_nu_eta', data=t3_nu_eta)
+t3_nu_cos_phi_data = event_truth.create_dataset('t3_nu_cos_phi', data=t3_nu_cos_phi)
+t3_nu_sin_phi_data = event_truth.create_dataset('t3_nu_sin_phi', data=t3_nu_sin_phi)
+
+t4_nu_eta_data = event_truth.create_dataset('t4_nu_eta', data=t4_nu_eta)
+t4_nu_cos_phi_data = event_truth.create_dataset('t4_nu_cos_phi', data=t4_nu_cos_phi)
+t4_nu_sin_phi_data = event_truth.create_dataset('t4_nu_sin_phi', data=t4_nu_sin_phi)
+
+
+
+t3_nu_px_data = event_regression.create_dataset('t3_nu_px', data=t3_nu_px)
+t3_nu_py_data = event_regression.create_dataset('t3_nu_py', data=t3_nu_py)
+t3_nu_pz_data = event_regression.create_dataset('t3_nu_pz', data=t3_nu_pz)
+t3_nu_px_data = event_truth.create_dataset('t3_nu_px', data=t3_nu_px)
+t3_nu_py_data = event_truth.create_dataset('t3_nu_py', data=t3_nu_py)
+t3_nu_pz_data = event_truth.create_dataset('t3_nu_pz', data=t3_nu_pz)
+
+t4_nu_px_data = event_regression.create_dataset('t4_nu_px', data=t4_nu_px)
+t4_nu_py_data = event_regression.create_dataset('t4_nu_py', data=t4_nu_py)
+t4_nu_pz_data = event_regression.create_dataset('t4_nu_pz', data=t4_nu_pz)
+t4_nu_px_data = event_truth.create_dataset('t4_nu_px', data=t4_nu_px)
+t4_nu_py_data = event_truth.create_dataset('t4_nu_py', data=t4_nu_py)
+t4_nu_pz_data = event_truth.create_dataset('t4_nu_pz', data=t4_nu_pz)
+
+# t2_tMass 
+t2_validTops  = t2_njet ==3
+t1_validTops  = t1_njet ==3
+t2_validWs  = w2_njet ==2
+t1_validWs  = w1_njet ==2
+t3_valid_mbl  = t3_njet ==2
+t4_valid_mbl  = t4_njet ==2
+
+
+# exit()
+for i in range(len(t2_validTops)):
+    if (t2_validTops[i] == False):
+        t2_tMass[i] = np.nan
+    if (t1_validTops[i] == False):
+        t1_tMass[i] = np.nan    
+    if (t1_validWs[i] == False):
+        t1_wMass[i] = np.nan 
+    if (t2_validWs[i] == False):
+        t2_wMass[i] = np.nan 
+        
+    if (t3_valid_mbl[i] == False):
+        t3_mbl[i] = np.nan 
+    if (t4_valid_mbl[i] == False):
+        t4_mbl[i] = np.nan 
+        
+# print(t2_validTops)
+# print(t2_tMass)
+# exit()
+
+t1_tMass_data = event_regression.create_dataset('t1_tMass', data=t1_tMass)
+t2_tMass_data = event_regression.create_dataset('t2_tMass', data=t2_tMass)
+t1_tMass_data = event_truth.create_dataset('t1_tMass', data=t1_tMass)
+t2_tMass_data = event_truth.create_dataset('t2_tMass', data=t2_tMass)
+
+t1_tMass_data = event_regression.create_dataset('t1_wMass', data=t1_wMass)
+t2_tMass_data = event_regression.create_dataset('t2_wMass', data=t2_wMass)
+t1_tMass_data = event_truth.create_dataset('t1_wMass', data=t1_wMass)
+t2_tMass_data = event_truth.create_dataset('t2_wMass', data=t2_wMass)
+
+print(t3_mbl[1:50])
+print(t3_njet[1:50])
+
+t3_mbl_data = event_regression.create_dataset('t3_mbl', data=t3_mbl)
+t4_mbl_data = event_regression.create_dataset('t4_mbl', data=t4_mbl)
+t3_mbl_data = event_truth.create_dataset('t3_mbl', data=t3_mbl)
+t4_mbl_data = event_truth.create_dataset('t4_mbl', data=t4_mbl)
+
+
+## TRUTH INFO ##
+Event = inputs.create_group('Event')
+Event_assigned_objects_data = Event.create_dataset('assigned_objects', data=assigned_objects)
+Event_assigned_jets_data = Event.create_dataset('assigned_jets', data=assigned_jet_vect)
+Event_assigned_bjets_data = Event.create_dataset('assigned_bjets', data=assigned_b_jet_vect)
+Event_assigned_tops_data = Event.create_dataset('assigned_tops', data=assigned_t_total_vect)
+Event_assigned_q_jets_data = Event.create_dataset('assigned_q_jets', data=assigned_q_jet_vect)
+Event_assigned_had_tops_data = Event.create_dataset('assigned_had_tops', data=assigned_t_had_vect)
+Event_njets_data = Event.create_dataset('nJets', data=nJets_ii)
 
 
 ### Do the train/test splitting uncomment this line ###
 # filter_and_save_h5_random(sys.argv[1],prefix)
+
+
+
+# with h5py.File(name, 'r') as f:
+#     data = f['TARGETS']['t3']['l'][:]  # Load the entire dataset into memory
+#     print(max(data))
+#     print(min(data))
+#     print(data)       # Print the contents    
+
+
+hf.close()

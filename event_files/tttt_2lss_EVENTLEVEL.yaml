@@ -66,53 +66,13 @@ PERMUTATIONS:
 # ------------------------------------------------------------------------------
 # REQUIRED - REGRESSIONS - List of desired features to regress from observables.
 # ------------------------------------------------------------------------------
-# REGRESSIONS:
-    # EVENT:
-    #         - t4_neutrino_eta
-    #         - t4_neutrino_cos_phi
-    #         - t4_neutrino_sin_phi     
-    #         - t3_neutrino_eta
-    #         - t3_neutrino_cos_phi
-    #         - t3_neutrino_sin_phi     
-
-# ##
 REGRESSIONS:
-    PARTICLE:
-      t1:
-        tMass: tMass
-    PARTICLE:
-      t2:
-        tMass: tMass
-
-# REGRESSIONS:
-#     t1:
-#       PARTICLE:
-#         tMass: tMass
-#     t2:
-#       PARTICLE:
-#         tMass: tMass
-
-#     #         - t2_top_pt
-#     #         - t2_top_eta
-#     #         - t2_top_phi
-#      t3:
-#         - PARTICLE:
-#             # - t3_top_mass
-#             # - t3_top_pt
-#             # - t3_top_eta
-#             # - t3_top_phi
-#             - t3_neutrino_eta
-#             - t3_neutrino_cos_phi
-#             - t3_neutrino_sin_phi       
-#      t4:
-#         - PARTICLE:
-#             # - t4_top_mass
-#             # - t4_top_pt
-#             # - t4_top_eta
-#             # - t4_top_phi
-#             - t4_neutrino_eta
-#             - t4_neutrino_cos_phi
-#             - t4_neutrino_sin_phi     
+    EVENT:
+        - t1_tMass
+        - t2_tMass
+        - t1_wMass
+        - t2_wMass
+       
 # -----------------------------------------------------------------------------
 # REQUIRED - REGRESSIONS - List of desired classes to predict from observables.
 # -----------------------------------------------------------------------------
